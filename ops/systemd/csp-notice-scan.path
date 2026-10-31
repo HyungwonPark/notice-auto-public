@@ -1,0 +1,9 @@
+[Unit]
+Description=CSP notice: collect now when requested (manage.py request_scan, web "check now" button)
+
+[Path]
+PathModified=/data/csp-notice/var/scan.request
+Unit=csp-notice-scan.service
+
+[Install]
+WantedBy=multi-user.target

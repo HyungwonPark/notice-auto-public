@@ -1,0 +1,26 @@
+[Unit]
+Description=CSP notice: nightly SQLite backup (VACUUM INTO, 14-day retention), then delete data older than a year
+Documentation=file:///data/csp-notice/release/docs/PLAN_M2.md
+
+[Service]
+Type=oneshot
+User=cspnotice
+Group=cspnotice
+WorkingDirectory=/data/csp-notice/release
+ExecStart=/data/csp-notice/venv/bin/python manage.py backup_db
+# Runs only after a good backup, so deleted rows stay in the backups for 14 days.
+ExecStart=/data/csp-notice/venv/bin/python manage.py purge_old
+Environment=PYTHONDONTWRITEBYTECODE=1
+UMask=0027
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/data/csp-notice/var /data/csp-notice/backup
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes

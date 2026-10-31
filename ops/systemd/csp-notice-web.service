@@ -1,0 +1,33 @@
+[Unit]
+Description=CSP notice: internal web (gunicorn on 127.0.0.1:8001, behind nginx)
+Documentation=file:///data/csp-notice/release/docs/PLAN_M3.md
+After=network.target
+
+[Service]
+Type=simple
+User=cspnotice
+Group=cspnotice
+WorkingDirectory=/data/csp-notice/release
+ExecStart=/data/csp-notice/venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8001 --no-control-socket --access-logfile - cspnotice.wsgi
+Environment=PYTHONDONTWRITEBYTECODE=1
+# Optional: CSP_ALLOWED_HOSTS=<this server's address>,localhost,127.0.0.1 on a server whose address is not
+# 192.0.2.10 (written by ops/migrate/import.sh).
+EnvironmentFile=-/etc/csp-notice/site.env
+UMask=0027
+Restart=on-failure
+RestartSec=5
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/data/csp-notice/var
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

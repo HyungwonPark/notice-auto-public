@@ -1,0 +1,11 @@
+[Unit]
+Description=CSP notice: collect mail every 5 minutes
+
+[Timer]
+OnCalendar=*:0/5
+# Spread start times so runs do not keep coinciding with Outlook's own polling.
+RandomizedDelaySec=30
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,28 @@
+[Unit]
+Description=CSP notice: read-only POP3 collection (headers, confirmed notice bodies)
+Documentation=file:///data/csp-notice/release/docs/PLAN_M2.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=cspnotice
+Group=cspnotice
+WorkingDirectory=/data/csp-notice/release
+ExecStart=/data/csp-notice/venv/bin/python manage.py scan_mail
+Environment=PYTHONDONTWRITEBYTECODE=1
+UMask=0027
+TimeoutStartSec=300
+
+# The collector needs only the network, its code, the POP3 env file (read) and /data/csp-notice/var.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/data/csp-notice/var
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
