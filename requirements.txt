@@ -1,0 +1,9 @@
+Django==5.2.18
+asgiref==3.12.1
+sqlparse==0.6.0
+gunicorn==26.2.0
+packaging==26.3
+# RHEL 8 ships SQLite 3.26; Django 5.2 needs 3.31+. This wheel bundles a current SQLite (see cspnotice/settings.py).
+pysqlite3-binary==0.5.4.post2
+# Read-only access to the company's MySQL view of customer accounts (customers/opsdb.py). Pure Python.
+pymysql==1.1.1
