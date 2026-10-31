@@ -1,0 +1,78 @@
+{% extends "web/base.html" %}
+{% load ko %}
+{% block title %}{% if row.pk %}{{ row.display_name|default:row.account_key }}{% else %}고객 추가{% endif %}{% endblock %}
+{% block content %}
+<p><a href="{% url 'customers' %}" class="muted">{% icon "arrow-left" %} 고객 정보</a></p>
+<div class="page-head">
+  <div>
+    <p class="eyebrow">{% if row.pk %}{{ row.get_kind_display }}, {{ row.get_source_display }}{% if row.web_only %}, 웹에서만 관리{% endif %}{% if row.edited_by %}, {{ row.updated_at|date:"Y.m.d H:i" }}{% endif %}{% else %}새 고객{% endif %}</p>
+    <h1>{% if row.pk %}{{ row.display_name|default:"이름 없음" }}{% else %}고객 추가{% endif %}</h1>
+  </div>
+  {% if not can_manage %}<span class="tag">보기 전용</span>{% endif %}
+  {% if row.pk %}{% if row.status == 'ok' %}<span class="tag green">정상</span>{% else %}<span class="tag red">확인 필요</span>{% endif %}{% endif %}
+</div>
+
+<div class="grid-2">
+  {% if readonly %}
+  <section class="card reveal">
+    {% if db_row %}<p style="margin-top:0"><span class="tag">운영 DB 값</span> <span class="help">운영 DB에서 고치면 5분 안에 반영</span></p>{% endif %}
+    <dl class="facts">
+      <dt>계정</dt><dd class="mono">{{ row.account }}</dd>
+      <dt>회사명</dt><dd>{{ row.company|default:"-" }}</dd>
+      <dt>이름</dt><dd>{{ row.name|default:"-" }}</dd>
+      <dt>사용자 ID</dt><dd class="mono">{{ row.userid|default:"-" }}</dd>
+      <dt>담당자</dt><dd>{{ row.manager|linebreaksbr|default:"-" }}</dd>
+      <dt>안내받을 이메일</dt><dd class="mono">{{ row.email|linebreaksbr|default:"-" }}</dd>
+      <dt>연락처</dt><dd class="mono">{{ row.phone|linebreaksbr|default:"-" }}</dd>
+    </dl>
+    {% if db_row and can_manage %}<form method="post" style="margin-top:16px">{% csrf_token %}
+      <button type="submit" name="take_over" value="1" class="ghost">웹에서만 관리로 전환</button>
+    </form>{% endif %}
+  </section>
+  {% else %}
+  <form method="post" class="card reveal" data-warn-unsaved>
+    {% csrf_token %}
+    {% if kinds %}
+    <div class="field"><label for="f-kind">구분</label>
+      <select id="f-kind" name="kind">{% for v, l in kinds %}<option value="{{ v }}"{% if v == row.kind %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+    {% endif %}
+    <div class="field"><label for="f-account">계정 (KT Cloud 계정 이메일)</label><input type="text" id="f-account" name="account" class="mono" value="{{ row.account }}" inputmode="email" autocomplete="off" spellcheck="false" autocapitalize="none" required></div>
+    <div class="field"><label for="f-company">회사명</label><input type="text" id="f-company" name="company" value="{{ row.company }}" autocomplete="off"></div>
+    <div class="field"><label for="f-name">이름</label><input type="text" id="f-name" name="name" value="{{ row.name }}" autocomplete="off"><div class="help">회사명이 없을 때 이 이름으로 표시합니다.</div></div>
+    <div class="field"><label for="f-userid">사용자 ID</label><input type="text" id="f-userid" name="userid" class="mono" value="{{ row.userid }}" autocomplete="off" spellcheck="false" autocapitalize="none"></div>
+    <div class="field"><label for="f-manager">담당자</label><textarea id="f-manager" name="manager" rows="3">{{ row.manager }}</textarea></div>
+    <div class="field"><label for="f-email">안내받을 이메일</label><textarea id="f-email" name="email" class="mono" rows="4" spellcheck="false" autocapitalize="none">{{ row.email }}</textarea>
+      <div class="help">여러 개면 줄을 바꿔 적습니다. 이 주소들이 안내문의 받는 사람이 됩니다.</div></div>
+    <div class="field"><label for="f-phone">연락처</label><textarea id="f-phone" name="phone" class="mono" rows="3" spellcheck="false">{{ row.phone }}</textarea></div>
+    {% if opsdb %}<div class="field"><input type="hidden" name="web_only_shown" value="1">
+      <label class="radio"><input type="checkbox" name="web_only" value="1"{% if row.web_only %} checked{% endif %}> 웹에서만 관리 (운영 DB 값으로 바꾸지 않음)</label></div>{% endif %}
+    <button type="submit">{% if row.pk %}고객 정보 저장{% else %}{% icon "plus" %}고객 추가{% endif %}</button>
+  </form>
+  {% endif %}
+
+  {% if row.pk %}
+  <aside class="stack">
+    <section class="card reveal">
+      <h2 style="margin-top:0">안내에 쓰이는 값</h2>
+      <dl class="facts">
+        <dt>찾는 계정</dt><dd class="mono">{{ row.account_key }}</dd>
+        <dt>받는 사람</dt><dd class="mono">{{ row.emails|join:", "|default:"없음" }}</dd>
+      </dl>
+      {% with p=row.problems|customer_problems %}{% if p %}<ul class="notes" style="margin-top:12px">{% for x in p %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}{% endwith %}
+    </section>
+    {% if history %}
+    <section class="card reveal">
+      <h2 style="margin-top:0">변경 이력</h2>
+      {% for h in history %}
+        <div style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px">
+          <div class="help">{{ h.updated_at|date:"Y.m.d H:i" }} {{ h.get_source_display }}{% if h.edited_by %} ({{ h.edited_by.get_username }}){% endif %}</div>
+          <div>{{ h.company|default:h.name }}</div>
+          <div class="mono help">{{ h.email|linebreaksbr }}</div>
+        </div>
+      {% endfor %}
+    </section>
+    {% endif %}
+  </aside>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "web/base.html" %}
+{% load ko %}
+{% block title %}작업 기록{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>작업 기록</h1></div>
+  <div class="inline">
+    <a class="button" href="{% url 'records_csv' %}{% if query %}?{{ query }}{% endif %}">{% icon "download" %}CSV 다운로드</a>
+  </div>
+</div>
+<form method="get" class="inline card reveal" role="search" style="margin-bottom:16px;padding:14px 18px">
+  <label for="year">작업 일시</label>
+  <select id="year" name="year" style="width:110px" aria-label="연도">
+    <option value="all"{% if not year %} selected{% endif %}>전체</option>
+    {% for y in years %}<option value="{{ y }}"{% if y|stringformat:"s" == year %} selected{% endif %}>{{ y }}년</option>{% endfor %}
+  </select>
+  <select id="month" name="month" style="width:100px" aria-label="월">
+    <option value=""{% if not month %} selected{% endif %}>전체 월</option>
+    {% for m in months %}<option value="{{ m }}"{% if m|stringformat:"s" == month %} selected{% endif %}>{{ m }}월</option>{% endfor %}
+  </select>
+  <label for="tab">구분</label>
+  <select id="tab" name="tab" style="width:150px">
+    <option value=""{% if not tab %} selected{% endif %}>전체</option>
+    <option value="main"{% if tab == 'main' %} selected{% endif %}>작업 공지</option>
+    {% for ch in channels %}<option value="{{ ch.pk }}"{% if ch.pk|stringformat:"s" == tab %} selected{% endif %}>{{ ch.label }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="ghost">보기</button>
+</form>
+<p class="help">{{ rows|length }}건</p>
+<div class="table-wrap reveal">
+<table>
+  <thead><tr><th>작업 일시</th><th style="min-width:260px">작업 내용</th><th>공지</th><th>고객</th><th>상태</th><th>확인자</th></tr></thead>
+  <tbody>{% for r in rows %}
+    <tr{% if r.notification_id %} data-href="{% url 'notification' r.notification_id %}"{% endif %}>
+      <td class="when" data-sort-value="{{ r.starts_at|date:'c' }}">{{ r.starts_at|date:"Y.m.d H:i" }}{% if r.ends_at %}<br>~ {% if r.ends_at|date:"Ymd" == r.starts_at|date:"Ymd" %}{{ r.ends_at|date:"H:i" }}{% else %}{{ r.ends_at|date:"m.d H:i" }}{% endif %}{% endif %}</td>
+      <td>{% if r.notification_id %}<a class="row-title" href="{% url 'notification' r.notification_id %}">{{ r.work_title }}</a>{% else %}{{ r.work_title }}<div class="help">원문은 지워짐</div>{% endif %}</td>
+      <td style="white-space:nowrap">{{ r.kind_label }}<div class="help">{{ r.tab }}</div></td>
+      <td>{{ r.customer|default:"-" }}<div class="help mono">{{ r.account }}</div></td>
+      <td data-sort-value="{{ r.status|status_order }}"><span class="tag tag-{{ r.status }}">{{ r.status_label }}</span>{% if r.sent_at %}<div class="help">발송 {{ r.sent_at|date:"m.d H:i" }}</div>{% endif %}</td>
+      <td style="white-space:nowrap">{{ r.staff_name }}{% if r.staff_confirmed_at %}<div class="help">{{ r.staff_confirmed_at|date:"m.d H:i" }}</div>{% endif %}</td>
+    </tr>
+  {% empty %}<tr><td colspan="6" class="empty">기록이 없습니다.</td></tr>{% endfor %}</tbody>
+</table>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% load static ko %}<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}작업 공지{% endblock %} - 작업 공지 안내</title>
+  <meta name="theme-color" content="#f7f6f3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#191919" media="(prefers-color-scheme: dark)">
+  <script>(function () {
+    var d = document.documentElement, t = null;
+    d.classList.add("js");
+    try { t = localStorage.getItem("csp.theme"); } catch (e) {}
+    if (t === "light" || t === "dark") { d.setAttribute("data-theme", t); }
+  })();</script>
+  <link rel="stylesheet" href="{% static 'web/app.css' %}?v={{ asset_version }}">
+</head>
+<body>
+<a class="skip" href="#main">본문으로 건너뛰기</a>
+{% if user.is_authenticated %}
+{% with p=request.path %}
+<header class="topbar">
+  <a class="brand" href="{% url 'dashboard' %}">작업 공지 안내</a>
+  <nav class="nav" aria-label="주 메뉴">
+    <a href="{% url 'dashboard' %}"{% if tab == 'main' %} aria-current="page"{% endif %}>{% icon "list" %}작업 공지</a>
+    {% for ch in nav_channels %}<a href="{% url 'channel' ch.pk %}"{% if tab == ch.pk %} aria-current="page"{% endif %}>{% icon "building" %}{{ ch.label }}</a>
+    {% endfor %}<a href="{% url 'calendar' %}"{% if '/calendar/' in p %} aria-current="page"{% endif %}>{% icon "calendar" %}달력</a>
+    <a href="{% url 'sent_mails' %}"{% if '/sent/' in p %} aria-current="page"{% endif %}>{% icon "mail" %}보낸 안내 메일</a>
+    <a href="{% url 'records' %}"{% if '/records' in p %} aria-current="page"{% endif %}>{% icon "archive" %}작업 기록</a>
+    <a href="{% url 'review' %}"{% if p == '/review/' %} aria-current="page"{% endif %}>{% icon "alert" %}확인 필요{% if nav_review %} <span class="count">{{ nav_review }}</span>{% endif %}</a>
+    <a href="{% url 'customers' %}"{% if '/customers/' in p %} aria-current="page"{% endif %}>{% icon "users" %}고객 정보</a>
+    <a href="{% url 'suggestions' %}"{% if '/suggestions/' in p %} aria-current="page"{% endif %}>{% icon "message" %}건의사항{% if nav_suggestions %} <span class="count quiet">{{ nav_suggestions }}</span>{% endif %}</a>
+    <a href="{% url 'config' %}"{% if '/config/' in p %} aria-current="page"{% endif %}>{% icon "settings" %}환경 설정</a>
+  </nav>
+  <span class="spacer"></span>
+  <div class="who">
+    <div class="theme-switch" role="group" aria-label="화면 테마">
+      <button type="button" data-theme-set="light" aria-pressed="false">Light</button>
+      <button type="button" data-theme-set="dark" aria-pressed="false">Dark</button>
+    </div>
+    <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="linklike" type="submit">로그아웃</button></form>
+  </div>
+</header>
+{% endwith %}
+{% endif %}
+<main id="main" tabindex="-1"{% block main_class %}{% endblock %}>
+  {% if messages %}<ul class="messages">{% for m in messages %}<li class="{{ m.tags }}" role="status">{{ m }}</li>{% endfor %}</ul>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+<script src="{% static 'web/app.js' %}?v={{ asset_version }}"></script>
+</body>
+</html>

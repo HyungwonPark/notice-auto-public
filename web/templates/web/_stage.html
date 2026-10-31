@@ -1,0 +1,12 @@
+{% if s.total %}
+<div class="stage">
+  <div class="progress" role="img" aria-label="담당자 확인 {{ s.staff }}, 발송 확인 {{ s.sent }}, 발송 대기 {{ s.wait }}, 확인 필요 {{ s.review }}, 발송 늦음 {{ s.late }}, 사내/안 쓰는 계정 {{ s.internal }}">
+    {% if s.staff %}<span class="p-done" style="flex:{{ s.staff }}"></span>{% endif %}
+    {% if s.sent %}<span class="p-sent" style="flex:{{ s.sent }}"></span>{% endif %}
+    {% if s.wait %}<span class="p-pending" style="flex:{{ s.wait }}"></span>{% endif %}
+    {% if s.review %}<span class="p-warn" style="flex:{{ s.review }}"></span>{% endif %}
+    {% if s.internal %}<span class="p-internal" style="flex:{{ s.internal }}"></span>{% endif %}
+  </div>
+  <span class="stage-note">{% if s.done and s.need %}<strong>확인 완료</strong> {{ s.staff }}/{{ s.need }}{% elif s.need %}담당자 확인 {{ s.staff }}/{{ s.need }}{% if s.late %}, <span class="late">발송 늦음 {{ s.late }}</span>{% elif s.wait %}, 발송 대기 {{ s.wait }}{% endif %}{% else %}사내/안 쓰는 계정{% endif %}</span>
+</div>
+{% else %}<span class="stage-note muted">{{ empty }}</span>{% endif %}

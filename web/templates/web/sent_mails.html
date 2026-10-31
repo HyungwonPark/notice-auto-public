@@ -1,0 +1,21 @@
+{% extends "web/base.html" %}
+{% load ko %}
+{% block title %}보낸 안내 메일{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>고객에게 보낸 안내 메일</h1></div>
+</div>
+<div class="table-wrap reveal">
+<table>
+  <thead><tr><th>받은 시각</th><th>제목</th><th>대상 계정</th><th>연결된 안내</th></tr></thead>
+  <tbody>{% for m in mails %}
+    <tr>
+      <td class="when" data-sort-value="{{ m.seen.header.date|date:'c' }}">{{ m.seen.header.date|date:"m.d (D) H:i" }}</td>
+      <td><a class="row-title" href="{% url 'sent_mail' m.pk %}">{{ m.seen.header.subject|default:"제목 없음" }}</a><div class="help">{{ m.title|default:"" }}</div></td>
+      <td class="mono">{% for t in m.targets.all %}{{ t.account }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="muted">없음</span>{% endfor %}</td>
+      <td>{% for n in m.confirms.all %}<a href="{% url 'notification' n.pk %}">{{ n.display_name|default:n.account }}</a>{% if not forloop.last %}, {% endif %}{% empty %}<span class="muted">없음</span>{% endfor %}</td>
+    </tr>
+  {% empty %}<tr><td colspan="4" class="empty">보낸 안내 메일이 없습니다.</td></tr>{% endfor %}</tbody>
+</table>
+</div>
+{% endblock %}

@@ -1,0 +1,142 @@
+{% extends "web/base.html" %}
+{% load ko %}
+{% block title %}환경 설정{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>환경 설정 {% if not can_manage %}<span class="tag">보기 전용</span>{% endif %}</h1></div>
+</div>
+
+<section class="card reveal" id="sending">
+  <div class="inline" style="justify-content:space-between">
+    <h2 style="margin:0">자동 발송</h2>
+    <span class="tag{% if send.mode == 'live' %} green{% endif %}">{{ send.mode_label }}</span>
+  </div>
+  <div class="grid-2" style="margin-top:16px">
+    <div>
+      {% if can_manage %}<form method="post" data-needs-actor>{% csrf_token %}
+        <input type="hidden" name="action" value="send_mode">
+        <div class="field" role="radiogroup" aria-label="자동 발송">
+          {% for value, label, ok in send.options %}
+          <label class="radio"><input type="radio" name="mode" value="{{ value }}"{% if value == send.chosen %} checked{% endif %}{% if not ok %} disabled{% endif %}> {{ label }}</label>
+          {% endfor %}
+        </div>
+        <label for="send-actor">변경하는 사람</label>
+        <div class="inline" style="margin-top:6px"><input type="text" id="send-actor" name="actor" data-actor-field maxlength="50" placeholder="예: 홍길동" autocomplete="off" spellcheck="false" style="width:140px">
+          <button type="submit">변경</button></div>
+      </form>{% endif %}
+      {% if send.problem %}<ul class="notes" style="margin-top:12px"><li>{{ send.problem }}</li></ul>{% endif %}
+    </div>
+    <dl class="facts">
+      {% if send.blocked %}<dt>서버 설정</dt><dd>발송 막힘 (SEND_MODE=off)</dd>{% endif %}
+      {% if send.cfg and send.cfg.access_key %}
+      <dt>보내는 사람</dt><dd class="mono">{% if send.cfg.sender_name %}{{ send.cfg.sender_name }} {% endif %}&lt;{{ send.cfg.sender_address }}&gt;</dd>
+      <dt>참조</dt><dd class="mono">{{ send.cfg.cc|join:", "|default:"-" }}</dd>
+      <dt>숨은참조</dt><dd class="mono">{{ send.cfg.bcc|join:", "|default:"-" }}</dd>
+      {% endif %}
+    </dl>
+  </div>
+  {% if send.history %}
+  <div class="table-wrap" style="margin-top:16px">
+    <table>
+      <thead><tr><th>변경 시각</th><th>자동 발송</th><th>변경한 사람</th></tr></thead>
+      <tbody>{% for h in send.history %}<tr><td class="mono">{{ h.at|date:"Y.m.d H:i" }}</td><td>{{ h.get_mode_display }}</td><td>{{ h.by }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+
+{% if can_manage %}
+<section class="card reveal" id="kt" style="margin-top:16px">
+  <div class="inline" style="justify-content:space-between">
+    <h2 style="margin:0">KT 공지 양식</h2>
+    <span class="help">{% with kt_history.0 as last %}{% if last %}{{ last.at|date:"Y.m.d H:i" }} {{ last.by }} 저장{% else %}기본값{% endif %}{% endwith %}</span>
+  </div>
+  <form method="post" data-warn-unsaved>{% csrf_token %}
+    <h3>1. KT가 보내는 주소</h3>
+    <div class="field"><input type="text" id="kt-sender" name="sender" class="mono" value="{{ kt.sender }}" inputmode="email" autocomplete="off" spellcheck="false" autocapitalize="none" aria-label="KT가 보내는 주소" style="max-width:360px"></div>
+
+    <h3>2. 제목으로 공지 종류 나누기</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>공지 종류</th><th>제목에 이 말이 있으면 (여러 개면 쉼표)</th><th>예</th></tr></thead>
+        <tbody>
+          {% for key, title, value, example in kt.kinds %}
+          <tr><td><label for="kt-{{ key }}">{{ title }}</label></td>
+            <td><input type="text" id="kt-{{ key }}" name="{{ key }}" value="{{ value }}" autocomplete="off" style="width:100%"></td>
+            <td class="mono">{{ example|default:"-" }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="help">작업 완료, 취소/변경, 연기, 긴급은 작업 공지의 말과 함께 있을 때. 공지 아님의 말이 있으면 다른 말이 있어도 넘김.</p>
+
+    <h3>3. 본문에서 읽는 항목</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>KT 메일에 적힌 이름 (여러 개면 쉼표)</th><th>쓰임</th></tr></thead>
+        <tbody>
+          {% for name, title, value, required, use in kt.labels %}
+          <tr><td><label for="kt-label-{{ name }}">{{ title }}</label>{% if required %} <span class="tag red">필수</span>{% endif %}</td>
+            <td><input type="text" id="kt-label-{{ name }}" name="label_{{ name }}" value="{{ value }}" autocomplete="off" style="width:100%"></td>
+            <td class="help">{{ use }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4. 고객 안내에서 빼는 KT 꼬리말</h3>
+    <div class="field"><label for="kt-footer">이 글자로 시작하는 줄 (한 줄에 하나)</label>
+      <textarea id="kt-footer" name="footer" rows="3" style="max-width:360px">{{ kt.footer }}</textarea></div>
+
+    {% if kt_problems %}<ul class="notes" style="margin:12px 0">{% for p in kt_problems %}<li>{{ p }}</li>{% endfor %}</ul>{% endif %}
+    <label for="kt-actor">저장하는 사람</label>
+    <div class="inline" style="margin-top:6px">
+      <input type="text" id="kt-actor" name="actor" data-actor-field maxlength="50" placeholder="예: 홍길동" autocomplete="off" spellcheck="false" style="width:140px">
+      <button type="submit" name="action" value="kt_preview" class="ghost">미리보기</button>
+      <button type="submit" name="action" value="kt_save">저장</button>
+      <button type="submit" name="action" value="kt_default" class="ghost">기본값으로 되돌리기</button>
+    </div>
+  </form>
+
+  {% if preview %}
+  <div id="kt-preview" style="margin-top:20px">
+    <h3>미리보기 (최근 {{ preview.days }}일 KT 공지 {{ preview.total }}건)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>읽은 항목</th><th>지금</th><th>바꾸면</th></tr></thead>
+        <tbody>{% for label, before, after in preview.rows %}
+          <tr><td>{{ label }}</td><td class="mono">{{ before }}</td><td class="mono">{% if after != before %}<strong>{{ after }}</strong>{% else %}{{ after }}{% endif %}</td></tr>
+        {% endfor %}</tbody>
+      </table>
+    </div>
+    {% if preview.moves %}
+    <div class="table-wrap" style="margin-top:12px">
+      <table>
+        <thead><tr><th>분류 지금</th><th>바꾸면</th><th>메일</th></tr></thead>
+        <tbody>{% for before, after, count in preview.moves %}<tr><td>{{ before }}</td><td>{{ after }}</td><td class="mono">{{ count }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% if preview.unknown %}
+    <p class="help">모르는 항목: {% for label, count in preview.unknown %}<span class="mono">{{ label }}</span> {{ count }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <h3 style="margin-top:24px">양식을 고친 뒤</h3>
+  <div class="inline">
+    <form method="post">{% csrf_token %}<button type="submit" name="action" value="kt_reread" class="ghost"{% if not reread %} disabled{% endif %}>{% icon "refresh" %}못 읽은 KT 공지 다시 읽기 ({{ reread }}건, 최근 {{ kt_days }}일)</button></form>
+    <form method="post">{% csrf_token %}<button type="submit" name="action" value="kt_recheck" class="ghost"{% if not recheck %} disabled{% endif %}>{% icon "refresh" %}KT 기타 메일 다시 분류 ({{ recheck }}건, 최근 {{ recheck_days }}일)</button></form>
+  </div>
+
+  {% if kt_history %}
+  <div class="table-wrap" style="margin-top:16px">
+    <table>
+      <thead><tr><th>저장 시각</th><th>저장한 사람</th></tr></thead>
+      <tbody>{% for h in kt_history %}<tr><td class="mono">{{ h.at|date:"Y.m.d H:i" }}</td><td>{{ h.by }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

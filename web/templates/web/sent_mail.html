@@ -1,0 +1,38 @@
+{% extends "web/base.html" %}
+{% load ko %}
+{% block title %}보낸 안내 메일{% endblock %}
+{% block main_class %} class="wide"{% endblock %}
+{% block content %}
+<p><a href="{% url 'sent_mails' %}" class="muted">{% icon "arrow-left" %} 보낸 안내 메일</a></p>
+<div class="page-head">
+  <div>
+    <p class="eyebrow mono">{{ mail.seen.header.date|date:"Y.m.d (D) H:i" }}</p>
+    <h1>{{ mail.seen.header.subject|default:"제목 없음" }}</h1>
+  </div>
+  <span class="tag">{{ mail.category|category }}</span>
+</div>
+<div class="grid-2 mail-left">
+  <section class="card reveal">
+    <h2 style="margin-top:0">실제로 나간 내용</h2>
+    {% include "web/_mail_body.html" with body=mail.seen.body title="보낸 메일 내용" %}
+  </section>
+  <aside class="stack">
+    <section class="card reveal">
+      <dl class="facts">
+        <dt>보낸 사람</dt><dd class="mono">{{ mail.seen.header.from_addr|default:mail.seen.header.from_display }}</dd>
+        <dt>받는 사람, 참조</dt><dd class="mono">{{ mail.recipients|join:", "|default:"없음" }}</dd>
+        <dt>대상 계정</dt><dd class="mono">{% for t in targets %}{{ t.account }}{% if not forloop.last %}, {% endif %}{% empty %}없음{% endfor %}</dd>
+        <dt>작업 일시</dt><dd>{{ mail.schedule|default:"-" }}</dd>
+      </dl>
+    </section>
+    <section class="card reveal">
+      <h2 style="margin-top:0">연결된 고객 안내</h2>
+      {% for n in notifications %}
+        <p><a href="{% url 'notification' n.pk %}">{{ n.display_name|default:n.account }}</a> <span class="tag tag-{{ n.status }}">{{ n.get_status_display }}</span>{% if n.work %}<br><span class="help">{{ n.work.title }}</span>{% endif %}</p>
+      {% empty %}
+        <p class="help">연결된 안내가 없습니다. KT 공지가 메일함 보관 기간(14일) 전에 와서 남아 있지 않거나, KT 작업과 관계없는 안내입니다.</p>
+      {% endfor %}
+    </section>
+  </aside>
+</div>
+{% endblock %}

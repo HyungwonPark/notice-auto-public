@@ -1,0 +1,24 @@
+{% load ko %}
+<div class="table-wrap reveal">
+<table>
+  <thead><tr>
+    <th>작업 일시</th><th>작업 내용</th><th class="num">고객</th><th>사전 공지</th><th>완료 공지</th><th class="num">확인 필요</th>
+  </tr></thead>
+  <tbody>
+  {% for r in works %}{% with w=r.w %}
+    <tr data-href="{% if channel %}{% url 'channel_work' channel.pk w.pk %}{% else %}{% url 'work' w.pk %}{% endif %}">
+      <td class="when" data-sort-value="{{ w.starts_at|date:'c' }}"><span class="dot {{ r.state }}" role="img" aria-label="{{ r.state|work_state }}" title="{{ r.state|work_state }}"></span> {{ w.starts_at|date:"m.d (D) H:i" }}{% if w.ends_at %} ~ {{ w.ends_at|date:"H:i" }}{% endif %}
+        {% if r.closure %}<div class="help">직접 넘김 ({{ r.closure.closed_by }})</div>{% endif %}
+        {% if r.postponed.rework %}<div class="help">재작업 {{ r.postponed.rework.starts_at|date:"m.d H:i" }}</div>{% elif r.postponed %}<div class="help">다음 일정: {{ r.postponed.next }}</div>{% endif %}</td>
+      <td><a class="row-title" href="{% if channel %}{% url 'channel_work' channel.pk w.pk %}{% else %}{% url 'work' w.pk %}{% endif %}">{{ w.title }}</a>{% if r.single %} <span class="tag red">점검 요청</span>{% elif w.incident %} <span class="tag red">장애</span>{% endif %}{% if r.postponed %} <span class="tag yellow">연기</span>{% endif %}{% if w.rework_of_id %} <span class="tag">재작업</span>{% endif %}</td>
+      <td class="num">{{ w.accounts }}</td>
+      <td data-sort-value="{% if r.notice.total %}{{ r.notice.left }}{% endif %}">{% include "web/_stage.html" with s=r.notice empty="받은 공지 없음" %}</td>
+      <td data-sort-value="{% if r.complete.total %}{{ r.complete.left }}{% endif %}">{% if r.single and not r.complete.total %}<span class="muted">-</span>{% else %}{% include "web/_stage.html" with s=r.complete empty="완료 공지 전" %}{% endif %}</td>
+      <td class="num">{% if r.review %}<span class="tag {% if r.problems %}red{% else %}yellow{% endif %}" title="{% if r.problems %}문제 {{ r.problems }}건{% endif %}{% if r.problems and r.unchecked %}, {% endif %}{% if r.unchecked %}담당자 확인 남음 {{ r.unchecked }}건{% endif %}">{{ r.review }}</span>{% else %}0{% endif %}</td>
+    </tr>
+  {% endwith %}{% empty %}
+    <tr><td colspan="6" class="empty">해당하는 작업이 없습니다.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>

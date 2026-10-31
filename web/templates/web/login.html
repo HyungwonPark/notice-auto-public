@@ -1,0 +1,37 @@
+{% extends "web/base.html" %}
+{% block title %}로그인{% endblock %}
+{% block content %}
+<div class="signin">
+  <div class="signin-head">
+    <p class="signin-org">예시클라우드</p>
+    <h1 class="signin-title">작업 공지 안내</h1>
+  </div>
+
+  <form method="post" class="signin-form">
+    {% csrf_token %}
+    {% if form.errors %}<p class="signin-error" role="alert">아이디 또는 비밀번호가 맞지 않습니다. 대소문자를 확인하고 다시 입력하세요.</p>{% endif %}
+    <div class="field"><label for="id_username">아이디</label>
+      <input type="text" name="username" id="id_username" value="{{ form.username.value|default:'' }}" autocomplete="username" spellcheck="false" autocapitalize="none" required{% if not form.username.value %} autofocus{% endif %}></div>
+    <div class="field"><label for="id_password">비밀번호</label>
+      <input type="password" name="password" id="id_password" autocomplete="current-password" required{% if form.username.value %} autofocus{% endif %}></div>
+    <input type="hidden" name="next" value="{{ next }}">
+    <button type="submit">로그인</button>
+  </form>
+
+  {# The day as a line: KT schedules almost every work between 22:00 and 07:00 (30 of the first 32). #}
+  <figure class="dayline" data-dayline>
+    <div class="dayline-track">
+      <span class="dayline-night" style="--from:0;--to:7"></span>
+      <span class="dayline-night" style="--from:22;--to:24"></span>
+      <span class="dayline-now" data-dayline-now hidden><span class="dayline-now-label">지금 <time data-dayline-time>{% now "H:i" %}</time></span></span>
+    </div>
+    <ol class="dayline-hours" aria-hidden="true">
+      <li style="--h:0">00</li><li style="--h:3">03</li><li style="--h:6">06</li><li style="--h:9">09</li><li style="--h:12">12</li>
+      <li style="--h:15">15</li><li style="--h:18">18</li><li style="--h:21">21</li><li style="--h:24">24</li>
+    </ol>
+    <figcaption><span class="dayline-key" aria-hidden="true"></span>KT 작업이 주로 잡히는 시간 22:00 ~ 07:00</figcaption>
+  </figure>
+
+  <p class="signin-note">사내망에서만 열리는 화면입니다. 함께 쓰는 PC라면 다 쓴 뒤 로그아웃하세요.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "web/base.html" %}
+{% load ko %}
+{% block title %}달력{% endblock %}
+{% block main_class %} class="wide"{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">작업 달력</p>
+    <h1>{{ first|date:"Y년 n월" }}</h1>
+  </div>
+  <div class="cal-head">
+    <a class="button ghost small" href="?m={{ prev }}" aria-label="이전 달">{% icon "arrow-left" %}</a>
+    <a class="button ghost small" href="?m={{ this_month }}">이번 달</a>
+    <a class="button ghost small" href="?m={{ next }}" aria-label="다음 달">{% icon "arrow-right" %}</a>
+  </div>
+</div>
+
+<div class="calendar reveal">
+  {% for wd in weekdays %}<div class="wd" aria-hidden="true">{{ wd }}</div>{% endfor %}
+  {% for week in weeks %}{% for d in week %}
+    <div class="day{% if not d.in_month %} out{% endif %}{% if d.today %} today{% endif %}">
+      <span class="num"{% if d.today %} aria-current="date"{% endif %}><span class="sr-only">{{ d.date|date:"n월 j일 (D)" }}</span><span aria-hidden="true">{{ d.date.day }}</span></span>
+      {% for r in d.works %}
+        <a class="chip {{ r.state }}" href="{% url 'work' r.w.pk %}" title="{{ r.w.title }}{% if r.postponed %} (연기){% endif %}, 고객 {{ r.w.accounts }}, {{ r.state|work_state }}">
+          <span class="chip-text"><span class="t">{{ r.w.starts_at|date:"H:i" }}</span> {{ r.w.title }}{% if r.postponed %} (연기){% endif %}</span><span class="sr-only">, {{ r.state|work_state }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  {% endfor %}{% endfor %}
+</div>
+<div class="legend cal-legend">{% include "web/_legend.html" %}</div>
+{% endblock %}

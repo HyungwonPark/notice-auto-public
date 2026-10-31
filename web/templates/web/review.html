@@ -1,0 +1,142 @@
+{% extends "web/base.html" %}
+{% load ko %}
+{% block title %}확인 필요{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>확인 필요</h1></div>
+</div>
+
+<h2>고객 안내 <span class="muted">{{ notifications|length }}건</span></h2>
+<div class="table-wrap reveal">
+<table>
+  <thead><tr><th>작업 일시</th><th>작업</th><th>고객</th><th>계정</th><th>상태</th><th>확인할 점</th></tr></thead>
+  <tbody>{% for n in notifications %}
+    <tr data-href="{% url 'notification' n.pk %}">
+      <td class="when" data-sort-value="{{ n.notice.starts_at|date:'c' }}">{{ n.notice.starts_at|date:"m.d H:i"|default:"-" }}</td>
+      <td>{% if n.work %}<a href="{% if n.tab %}{% url 'channel_work' n.tab.pk n.work.pk %}{% else %}{% url 'work' n.work.pk %}{% endif %}">{{ n.work.title }}</a>{% else %}{{ n.notice.title|default:"-" }}{% endif %}{% if n.tab %} <span class="tag">{{ n.tab.label }}</span>{% endif %}</td>
+      <td><a class="row-title" href="{% url 'notification' n.pk %}">{{ n|who }}</a></td>
+      <td class="mono">{{ n.account }}</td>
+      <td data-sort-value="{{ n.status|status_order }}"><span class="tag tag-{{ n.status }}">{{ n.get_status_display }}</span></td>
+      <td><ul class="notes">{% for x in n.review_reasons|reasons %}<li>{{ x }}</li>{% endfor %}</ul></td>
+    </tr>
+  {% empty %}<tr><td colspan="6" class="empty">없습니다.</td></tr>{% endfor %}</tbody>
+</table>
+</div>
+
+{% include "web/_late.html" %}
+
+<form method="post" action="{% url 'staff_confirm' %}" data-needs-actor id="unchecked">
+  {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}#unchecked">
+  <div class="page-head" style="margin:32px 0 0">
+    <h2 style="margin:0">담당자 확인 남은 안내 <span class="muted">{{ unchecked|length }}건</span></h2>
+    {% if unchecked %}<div class="inline">
+      <label for="unchecked-actor" class="muted" style="font-weight:400">확인한 사람</label>
+      <input type="text" id="unchecked-actor" name="actor" data-actor-field maxlength="50" placeholder="예: 홍길동" autocomplete="off" spellcheck="false" style="width:140px">
+      <button type="submit">{% icon "check" %}선택한 안내 담당자 확인</button>
+    </div>{% endif %}
+  </div>
+  <div class="table-wrap reveal">
+  <table>
+    <thead><tr><th class="check" data-no-sort><input type="checkbox" data-select-all aria-label="담당자 확인 남은 안내 모두 선택"></th><th>작업 일시</th><th>작업</th><th>구분</th><th>고객</th><th>상태</th></tr></thead>
+    <tbody>{% for n in unchecked %}
+      <tr data-href="{% url 'notification' n.pk %}">
+        <td class="check"><input type="checkbox" name="ids" value="{{ n.pk }}" aria-label="{{ n|who }} {{ n.kind_label }} 담당자 확인"{% if n.status not in confirmable %} disabled{% endif %}></td>
+        <td class="when" data-sort-value="{{ n.work.starts_at|date:'c' }}">{{ n.work.starts_at|date:"m.d H:i"|default:"-" }}</td>
+        <td>{% if n.work %}<a href="{% if n.tab %}{% url 'channel_work' n.tab.pk n.work.pk %}{% else %}{% url 'work' n.work.pk %}{% endif %}">{{ n.work.title }}</a>{% else %}{{ n.notice.title|default:"-" }}{% endif %}{% if n.tab %} <span class="tag">{{ n.tab.label }}</span>{% endif %}</td>
+        <td>{{ n.kind_label }}</td>
+        <td><a class="row-title" href="{% url 'notification' n.pk %}">{{ n|who }}</a></td>
+        <td data-sort-value="{{ n.status|status_order }}"><span class="tag tag-{{ n.status }}">{{ n.get_status_display }}</span></td>
+      </tr>
+    {% empty %}<tr><td colspan="6" class="empty">없습니다.</td></tr>{% endfor %}</tbody>
+  </table>
+  </div>
+</form>
+
+<h2>고객 정보에 없는 계정 <span class="muted">{{ missing|length }}개</span></h2>
+<div class="table-wrap reveal">
+<table>
+  <thead><tr><th>계정</th><th class="num">KT 공지</th><th data-no-sort></th></tr></thead>
+  <tbody>{% for m in missing %}
+    <tr><td class="mono">{{ m.account }}</td><td class="num">{{ m.notices }}건</td>
+      <td class="num">{% if can_manage %}<div class="inline" style="justify-content:flex-end">
+        <form method="post" action="{% url 'internal_accounts' %}">{% csrf_token %}
+          <input type="hidden" name="account" value="{{ m.account }}"><input type="hidden" name="next" value="{{ request.path }}">
+          <input type="hidden" name="actor" data-actor-field>
+          <button type="submit" class="ghost small">{% icon "building" %}사내 계정</button></form>
+        <form method="post" action="{% url 'internal_accounts' %}">{% csrf_token %}
+          <input type="hidden" name="account" value="{{ m.account }}"><input type="hidden" name="next" value="{{ request.path }}">
+          <input type="hidden" name="kind" value="unused"><input type="hidden" name="actor" data-actor-field>
+          <button type="submit" class="ghost small" aria-label="{{ m.account }} 안 쓰는 계정으로 지정">안 쓰는 계정</button></form>
+        <a class="button ghost small" href="{% url 'customer_new' %}?account={{ m.account|urlencode }}">{% icon "plus" %}고객 추가</a></div>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="3" class="empty">없습니다.</td></tr>{% endfor %}</tbody>
+</table>
+</div>
+
+<h2>내용을 자동으로 읽지 못한 메일 <span class="muted">{{ notices|length }}건</span></h2>
+<form method="post" action="{% url 'notices_dismiss' %}" data-needs-actor>{% csrf_token %}
+<div class="table-wrap reveal">
+<table>
+  <thead><tr><th class="check"><input type="checkbox" data-select-all aria-label="읽지 못한 메일 모두 선택"></th>
+    <th>받은 시각</th><th>구분</th><th>제목</th><th>확인할 점</th></tr></thead>
+  <tbody>{% for x in notices %}
+    <tr><td class="check"><input type="checkbox" name="ids" value="{{ x.pk }}" aria-label="{{ x.seen.header.subject|default:'제목 없음' }} 선택"></td>
+      <td class="when" data-sort-value="{{ x.seen.header.date|date:'c' }}">{{ x.seen.header.date|date:"m.d H:i" }}</td><td>{{ x.category|category }}</td>
+      <td><a class="row-title" href="{% url 'notice' x.pk %}">{{ x.seen.header.subject|default:"제목 없음" }}</a></td>
+      <td><ul class="notes">{% for p in x.problems|problems %}<li>{{ p }}</li>{% endfor %}</ul></td></tr>
+  {% empty %}<tr><td colspan="5" class="empty">없습니다.</td></tr>{% endfor %}</tbody>
+</table>
+</div>
+{% if notices %}{% include "web/_dismiss_bar.html" with what="읽지 못한 메일" key="unread" %}{% endif %}
+</form>
+
+{% if other_kt %}
+<details class="fold">
+  <summary>작업 공지 형식이 아닌 KT 메일 {{ other_kt|length }}건</summary>
+  <form method="post" action="{% url 'notices_dismiss' %}" data-needs-actor>{% csrf_token %}
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th class="check"><input type="checkbox" data-select-all aria-label="작업 공지 형식이 아닌 KT 메일 모두 선택"></th><th>받은 시각</th><th>제목</th></tr></thead>
+    <tbody>{% for x in other_kt %}
+      <tr><td class="check"><input type="checkbox" name="ids" value="{{ x.pk }}" aria-label="{{ x.seen.header.subject|default:'제목 없음' }} 선택"></td>
+        <td class="when" data-sort-value="{{ x.seen.header.date|date:'c' }}">{{ x.seen.header.date|date:"m.d H:i" }}</td>
+        <td><a class="row-title" href="{% url 'notice' x.pk %}">{{ x.seen.header.subject|default:"제목 없음" }}</a></td></tr>
+    {% endfor %}</tbody>
+  </table>
+  </div>
+  {% include "web/_dismiss_bar.html" with what="KT 메일" key="other" %}
+  </form>
+</details>
+{% endif %}
+
+{% if dismissed %}
+<details class="fold">
+  <summary>목록에서 뺀 메일 {{ dismissed|length }}건</summary>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>받은 시각</th><th>제목</th><th>뺀 사람</th><th class="num" data-no-sort></th></tr></thead>
+    <tbody>{% for x in dismissed %}
+      <tr><td class="when" data-sort-value="{{ x.seen.header.date|date:'c' }}">{{ x.seen.header.date|date:"m.d H:i" }}</td>
+        <td><a href="{% url 'notice' x.pk %}">{{ x.seen.header.subject|default:"제목 없음" }}</a></td>
+        <td class="help" data-sort-value="{{ x.dismissed_at|date:'c' }}">{{ x.dismissed_by }}, {{ x.dismissed_at|date:"m.d H:i" }}</td>
+        <td class="num"><form method="post" action="{% url 'notices_dismiss' %}">{% csrf_token %}
+          <input type="hidden" name="ids" value="{{ x.pk }}"><input type="hidden" name="undo" value="1">
+          <button type="submit" class="ghost small">되돌리기</button></form></td></tr>
+    {% endfor %}</tbody>
+  </table>
+  </div>
+</details>
+{% endif %}
+
+<h2>고객 정보 확인 <span class="muted">{{ customers|length }}건</span></h2>
+<div class="table-wrap reveal">
+<table>
+  <thead><tr><th>계정</th><th>고객</th><th>확인할 점</th></tr></thead>
+  <tbody>{% for c in customers %}
+    <tr><td class="mono"><a href="{% url 'customer_edit' c.pk %}">{{ c.account_key }}</a></td><td>{{ c.display_name }}</td>
+      <td><ul class="notes">{% for p in c.problems|customer_problems %}<li>{{ p }}</li>{% endfor %}</ul></td></tr>
+  {% empty %}<tr><td colspan="3" class="empty">없습니다.</td></tr>{% endfor %}</tbody>
+</table>
+</div>
+
+<p class="help" style="margin-top:20px">어떤 고객 안내와도 연결되지 않은 보낸 메일: {{ unmatched_copies }}통 (KT 공지가 메일함 보관 기간 전에 와서 없거나, KT 작업과 관계없는 안내)</p>
+{% endblock %}

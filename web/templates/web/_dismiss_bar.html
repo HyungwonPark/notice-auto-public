@@ -1,0 +1,6 @@
+{% load ko %}
+<div class="inline action-bar">
+  <label for="dismiss-actor-{{ key }}" class="muted">확인한 사람</label>
+  <input type="text" id="dismiss-actor-{{ key }}" name="actor" data-actor-field maxlength="50" placeholder="예: 홍길동" autocomplete="off" spellcheck="false" style="width:140px">
+  <button type="submit" class="ghost">{% icon "check" %}선택한 {{ what }} 목록에서 빼기</button>
+</div>

@@ -1,0 +1,4 @@
+{% load ko %}{% if body.html %}
+<iframe class="mail-frame" title="{{ title }}" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" srcdoc="{{ body.html|mail_doc }}"></iframe>
+<details class="fold"><summary>텍스트로 보기</summary><pre class="mail">{{ body.text }}</pre></details>
+{% else %}<pre class="mail">{{ body.text }}</pre>{% endif %}

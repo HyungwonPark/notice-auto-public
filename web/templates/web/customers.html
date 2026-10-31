@@ -1,0 +1,42 @@
+{% extends "web/base.html" %}
+{% load ko %}
+{% block title %}고객 정보{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>고객 정보 {% if not can_manage %}<span class="tag">보기 전용</span>{% endif %}</h1></div>
+  <div class="inline">
+    {% if opsdb and can_manage %}<form method="post" action="{% url 'customers_sync' %}">{% csrf_token %}<button type="submit" class="ghost">{% icon "refresh" %}운영 DB 지금 조회</button></form>{% endif %}
+    <a class="button ghost" href="{% url 'internal_accounts' %}">{% icon "building" %}사내/안 쓰는 계정</a>
+    <a class="button ghost" href="{% url 'customers_csv' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">{% icon "download" %}CSV 다운로드</a>
+    {% if can_manage %}<a class="button" href="{% url 'customer_new' %}">{% icon "plus" %}고객 추가</a>{% endif %}
+  </div>
+</div>
+<form method="get" class="inline card reveal" role="search" style="margin-bottom:16px;padding:14px 18px">
+  <input type="search" id="q" name="q" value="{{ q }}" placeholder="계정, 회사명, 이름, 이메일, 담당자로 찾기" aria-label="검색어" autocomplete="off" spellcheck="false" style="flex:1;min-width:220px">
+  <select id="kind" name="kind" aria-label="구분" style="width:120px">
+    <option value="">전체</option>
+    {% for value, label in kinds %}<option value="{{ value }}"{% if value == kind %} selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <label style="font-weight:400"><input type="checkbox" name="review" value="1"{% if review_only %} checked{% endif %}> 확인 필요만</label>
+  <button type="submit" class="ghost">찾기</button>
+</form>
+<p class="help">{{ rows|length }}개{% if rows|length == 500 %} (처음 500개){% endif %}{% if opsdb %}<br>운영 DB(일반) 마지막 조회
+  {% if opsdb_last and opsdb_last.ok %}{{ opsdb_last.finished_at|date:"m.d H:i" }} {{ opsdb_last.rows }}건{% if opsdb_last.batch %}, 고객 정보 갱신{% endif %}{% elif opsdb_last %}<span class="tag red" title="{{ opsdb_last.error }}">{{ opsdb_last.started_at|date:"m.d H:i" }} 조회 실패</span>{% else %}아직 조회 전{% endif %}{% if opsdb_stale %} <span class="tag red">15분 넘게 조회하지 못함</span>{% endif %}{% endif %}</p>
+<div class="table-wrap reveal">
+<table>
+  <thead><tr><th>구분</th><th>계정</th><th>고객</th><th>담당자</th><th class="num">이메일</th><th>상태</th><th>입력 방식</th><th>바뀐 날</th></tr></thead>
+  <tbody>{% for r in rows %}
+    <tr>
+      <td>{{ r.get_kind_display }}</td>
+      <td class="mono"><a class="row-title" href="{% url 'customer_edit' r.pk %}">{{ r.account_key }}</a></td>
+      <td>{{ r.display_name }}</td>
+      <td>{{ r.manager|linebreaksbr }}</td>
+      <td class="num">{{ r.emails|length }}개</td>
+      <td>{% if r.account_key in internal %}<span class="tag">{{ internal|get:r.account_key }}</span>{% elif r.status == 'ok' %}<span class="tag green">정상</span>{% else %}<span class="tag red">확인 필요</span>{% endif %}</td>
+      <td class="muted">{{ r.get_source_display }}{% if r.web_only %}, 웹에서만 관리{% endif %}</td>
+      <td class="when" data-sort-value="{{ r.updated_at|date:'c' }}">{{ r.updated_at|date:"m.d" }}</td>
+    </tr>
+  {% empty %}<tr><td colspan="8" class="empty">찾는 고객이 없습니다.</td></tr>{% endfor %}</tbody>
+</table>
+</div>
+{% endblock %}

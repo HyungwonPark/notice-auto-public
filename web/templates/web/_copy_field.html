@@ -1,0 +1,6 @@
+{% load ko %}<div class="field{% if must %} must-check{% endif %}"><span class="label" id="{{ id }}-label">{{ label }}{% if must %} <span class="tag red">확인 필수</span>{% endif %}</span>
+  <div class="copy">
+    <input type="text" id="{{ id }}" class="{{ cls|default:'mono' }}" value="{{ value }}" readonly aria-labelledby="{{ id }}-label">
+    <button type="button" class="ghost" data-copy-target="{{ id }}" data-what="{{ what }}" data-record-url="{% url 'notification_copied' n.pk %}">{% icon "copy" %}복사</button>
+  </div><div id="{{ id }}-note" class="copied" aria-live="polite"></div>
+</div>

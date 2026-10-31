@@ -1,0 +1,104 @@
+{% extends "web/base.html" %}
+{% load ko %}
+{% block title %}{{ ch.label }} 받는 사람 그룹{% endblock %}
+{% block content %}
+<p><a href="{% url 'channel' ch.pk %}" class="muted">{% icon "arrow-left" %} {{ ch.label }}</a></p>
+<div class="page-head">
+  <div><p class="eyebrow">별도 발송</p><h1>{{ ch.label }} 받는 사람 그룹 {% if not can_manage %}<span class="tag">보기 전용</span>{% endif %}</h1></div>
+</div>
+
+<div class="grid-2" style="margin-top:16px">
+  <div class="stack">
+    <div class="table-wrap reveal">
+    <table>
+      <thead><tr><th>그룹</th><th class="num">받는 사람</th><th class="num">참조</th><th>서버</th><th>변경</th><th data-no-sort></th></tr></thead>
+      <tbody>{% for g in groups %}
+        <tr>
+          <td><a href="?edit={{ g.pk }}#group-form">{{ g.name }}</a></td>
+          <td class="num">{{ g.to_list|length }}명</td>
+          <td class="num">{{ g.cc_list|length }}명</td>
+          <td class="mono">{{ g.server_list|join:", " }}</td>
+          <td class="help" data-sort-value="{{ g.updated_at|date:'c' }}">{{ g.updated_at|date:"m.d" }}{% if g.updated_by %} {{ g.updated_by }}{% endif %}</td>
+          <td class="num">{% if can_manage %}<form method="post">{% csrf_token %}
+            <input type="hidden" name="action" value="retire"><input type="hidden" name="group" value="{{ g.pk }}">
+            <input type="hidden" name="actor" data-actor-field>
+            <button type="submit" class="ghost small" aria-label="{{ g.name }} 그룹 빼기">빼기</button></form>{% endif %}</td>
+        </tr>
+      {% empty %}<tr><td colspan="6" class="empty">그룹이 없습니다.</td></tr>{% endfor %}</tbody>
+    </table>
+    </div>
+
+    {% if unmapped %}
+    <section class="card reveal" id="unmapped">
+      <h2 style="margin-top:0">그룹에 없는 서버 <span class="muted">최근 {{ days }}일 KT 공지</span></h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>서버</th><th class="num">공지</th><th>최근</th></tr></thead>
+          <tbody>{% for s in unmapped %}<tr><td class="mono">{{ s.name }}</td><td class="num">{{ s.notices }}건</td><td class="mono">{{ s.last|date:"m.d H:i" }}</td></tr>{% endfor %}</tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if retired %}
+    <section class="card reveal">
+      <h2 style="margin-top:0">뺀 그룹</h2>
+      {% for g in retired %}
+      <div class="inline" style="justify-content:space-between;border-top:1px solid var(--line);padding:8px 0">
+        <span>{{ g.name }} <span class="help">{{ g.updated_at|date:"m.d H:i" }}{% if g.updated_by %} {{ g.updated_by }}{% endif %}</span></span>
+        {% if can_manage %}<form method="post">{% csrf_token %}
+          <input type="hidden" name="action" value="restore"><input type="hidden" name="group" value="{{ g.pk }}">
+          <input type="hidden" name="actor" data-actor-field>
+          <button type="submit" class="ghost small" aria-label="{{ g.name }} 그룹 되살리기">되살리기</button></form>{% endif %}
+      </div>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    <section class="card reveal">
+      <h2 style="margin-top:0">전체 받는 사람 <span class="muted">{{ ch.to_list|length }}명</span></h2>
+      <p class="mono" style="margin:0">{{ ch.to_list|join:"; "|default:"-" }}</p>
+    </section>
+  </div>
+
+  <div class="stack">
+    {% if can_manage or editing %}
+    <form method="post" class="card reveal" id="group-form" data-needs-actor data-warn-unsaved>
+      {% csrf_token %}<fieldset class="manage"{% if not can_manage %} disabled{% endif %}>
+      <input type="hidden" name="action" value="save">
+      {% if editing %}<input type="hidden" name="group" value="{{ editing.pk }}">{% endif %}
+      <h2 style="margin-top:0">{% if editing and can_manage %}{{ editing.name }} 수정{% elif editing %}{{ editing.name }}{% else %}그룹 추가{% endif %}</h2>
+      <div class="field"><label for="g-name">그룹 이름</label>
+        <input type="text" id="g-name" name="name" value="{{ form.name }}" maxlength="60" placeholder="예: 공통 인프라" autocomplete="off" required></div>
+      <div class="field"><label for="g-to">받는 사람 (한 줄에 하나)</label>
+        <textarea id="g-to" name="mail_to" rows="3" class="mono" spellcheck="false">{{ form.mail_to }}</textarea></div>
+      <div class="field"><label for="g-cc">참조 <span class="muted" style="font-weight:400">(선택)</span></label>
+        <textarea id="g-cc" name="mail_cc" rows="2" class="mono" spellcheck="false">{{ form.mail_cc }}</textarea></div>
+      <div class="field"><label for="g-servers">서버 (한 줄에 하나)</label>
+        <textarea id="g-servers" name="servers" rows="6" class="mono" spellcheck="false">{{ form.servers }}</textarea></div>
+      {% if problems %}<ul class="notes" style="margin:12px 0">{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul>{% endif %}
+      {% if can_manage %}<label for="g-actor">변경하는 사람</label>
+      <div class="inline" style="margin-top:6px">
+        <input type="text" id="g-actor" name="actor" data-actor-field maxlength="50" placeholder="예: 홍길동" autocomplete="off" spellcheck="false" style="width:140px">
+        <button type="submit">저장</button>
+        {% if editing %}<a href="{% url 'channel_groups' ch.pk %}" class="button ghost">취소</a>{% endif %}
+      </div>{% endif %}
+    </fieldset></form>
+    {% endif %}
+
+    <form method="post" class="card reveal" id="aliases" data-needs-actor data-warn-unsaved>
+      {% csrf_token %}
+      <input type="hidden" name="action" value="aliases"><fieldset class="manage"{% if not can_manage %} disabled{% endif %}>
+      <h2 style="margin-top:0">KT 서버 이름 <span class="muted">{{ alias_count }}개</span></h2>
+      <div class="field"><label for="a-text">KT 공지 이름 = 서버 목록 이름 (한 줄에 하나)</label>
+        <textarea id="a-text" name="aliases" rows="5" class="mono" spellcheck="false" placeholder="예: webdb-dev = dev-web-db">{{ aliases }}</textarea></div>
+      {% if alias_problems %}<ul class="notes" style="margin:12px 0">{% for p in alias_problems %}<li>'=' 없는 줄: {{ p }}</li>{% endfor %}</ul>{% endif %}
+      {% if can_manage %}<label for="a-actor">변경하는 사람</label>
+      <div class="inline" style="margin-top:6px">
+        <input type="text" id="a-actor" name="actor" data-actor-field maxlength="50" placeholder="예: 홍길동" autocomplete="off" spellcheck="false" style="width:140px">
+        <button type="submit">저장</button>
+      </div>{% endif %}
+    </fieldset></form>
+  </div>
+</div>
+{% endblock %}

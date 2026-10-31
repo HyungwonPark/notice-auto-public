@@ -1,0 +1,85 @@
+{% extends "web/base.html" %}
+{% load ko %}
+{% block title %}{{ ch.label }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">별도 발송, <span class="mono">{{ ch.sender }}</span></p>
+    <h1>{{ ch.label }}</h1>
+  </div>
+  <a href="{% url 'channel_groups' ch.pk %}" class="button ghost">받는 사람 그룹{% if group_count %} {{ group_count }}개{% endif %}</a>
+</div>
+<section class="bento" style="margin-top:16px">
+  <div class="card stat reveal">
+    <div class="label">발송 기다리는 안내</div>
+    <div class="value">{{ counts.waiting }}</div>
+    <div class="note">{{ ch.label }} 쪽 메일이 아직 안 들어옴</div>
+  </div>
+  <div class="card stat reveal">
+    <div class="label">담당자 확인 대기</div>
+    <div class="value">{{ counts.to_check }}</div>
+    <div class="note">발송은 확인됐고 담당자 확인만 남음</div>
+  </div>
+  <div class="card stat reveal{% if counts.problems %} alert{% endif %}">
+    <div class="label">확인 필요</div>
+    <div class="value"><a href="#attention">{{ counts.review }}</a></div>
+    <div class="note">담당자 확인 남음 {{ counts.unchecked }}건, 그 외 문제 {{ counts.problems }}건</div>
+  </div>
+  <div class="card stat reveal">
+    <div class="label">대상 계정</div>
+    <div class="note mono" style="margin-top:8px">{% for a in ch.account_keys %}{{ a }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</div>
+  </div>
+</section>
+
+<h2>진행 중인 작업 <span class="muted">{{ upcoming|length }}건</span></h2>
+{% include "web/_works.html" with works=upcoming %}
+
+<details class="fold">
+  <summary>지난 작업 {{ past|length }}건</summary>
+  {% include "web/_works.html" with works=past %}
+</details>
+
+{% if attention %}
+<form method="post" action="{% url 'staff_confirm' %}" data-needs-actor id="attention">
+  {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}#attention">
+  <div class="page-head" style="margin:32px 0 0">
+    <h2 style="margin:0">확인 필요 <span class="muted">{{ attention|length }}건</span></h2>
+    <div class="inline">
+      <label for="attention-actor" class="muted" style="font-weight:400">확인한 사람</label>
+      <input type="text" id="attention-actor" name="actor" data-actor-field maxlength="50" placeholder="예: 홍길동" autocomplete="off" spellcheck="false" style="width:140px">
+      <button type="submit">{% icon "check" %}선택한 안내 담당자 확인</button>
+    </div>
+  </div>
+<div class="table-wrap reveal" style="margin-top:12px">
+<table>
+  <thead><tr><th class="check" data-no-sort><input type="checkbox" data-select-all aria-label="담당자 확인할 수 있는 안내 모두 선택"></th><th>작업 일시</th><th>작업</th><th>구분</th><th>상태</th><th>확인할 점</th></tr></thead>
+  <tbody>{% for a in attention %}{% with n=a.n %}
+    <tr data-href="{% url 'notification' n.pk %}">
+      <td class="check"><input type="checkbox" name="ids" value="{{ n.pk }}" aria-label="{{ n.kind_label }} 담당자 확인"{% if n.status not in confirmable %} disabled{% endif %}></td>
+      <td class="when" data-sort-value="{{ n.work.starts_at|date:'c' }}">{{ n.work.starts_at|date:"m.d (D) H:i"|default:"-" }}</td>
+      <td>{% if n.work %}<a href="{% url 'channel_work' ch.pk n.work.pk %}">{{ n.work.title }}</a>{% else %}{{ n.notice.title|default:"-" }}{% endif %}</td>
+      <td><a href="{% url 'notification' n.pk %}">{{ n.kind_label }}</a></td>
+      <td data-sort-value="{{ n.status|status_order }}"><span class="tag tag-{{ n.status }}">{{ n.get_status_display }}</span></td>
+      <td>{% if a.why == "late" %}<span class="late">발송 늦음</span>{% elif a.why == "unchecked" %}담당자 확인 남음{% else %}{% with r=n.review_reasons|reasons %}<ul class="notes">{% for x in r %}<li>{{ x }}</li>{% endfor %}</ul>{% endwith %}{% endif %}</td>
+    </tr>
+  {% endwith %}{% endfor %}</tbody>
+</table>
+</div>
+</form>
+{% endif %}
+
+<h2>{{ ch.label }}에 보낸 안내 메일 <span class="muted">{{ mails|length }}통</span></h2>
+<div class="table-wrap reveal">
+<table>
+  <thead><tr><th>받은 시각</th><th>구분</th><th>제목</th><th>연결된 안내</th></tr></thead>
+  <tbody>{% for m in mails %}
+    <tr>
+      <td class="when" data-sort-value="{{ m.seen.header.date|date:'c' }}">{{ m.seen.header.date|date:"m.d (D) H:i" }}</td>
+      <td>{{ m.category|category }}</td>
+      <td><a class="row-title" href="{% url 'sent_mail' m.pk %}">{{ m.seen.header.subject|default:"제목 없음" }}</a></td>
+      <td>{% for n in m.confirms.all %}<a href="{% url 'notification' n.pk %}">{{ n.kind_label }}</a> <span class="tag tag-{{ n.status }}">{{ n.get_status_display }}</span>{% if not forloop.last %}<br>{% endif %}{% empty %}<span class="muted">없음</span>{% endfor %}</td>
+    </tr>
+  {% empty %}<tr><td colspan="4" class="empty">아직 받은 메일이 없습니다.</td></tr>{% endfor %}</tbody>
+</table>
+</div>
+{% endblock %}

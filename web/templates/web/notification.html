@@ -1,0 +1,193 @@
+{% extends "web/base.html" %}
+{% load ko %}
+{% block title %}{{ n|who }}{% endblock %}
+{% block content %}
+<p>{% if back_url %}<a href="{{ back_url }}" class="muted">{% icon "arrow-left" %} {{ n.work.title }}</a>{% else %}<a href="{% url 'review' %}" class="muted">{% icon "arrow-left" %} 확인 필요</a>{% endif %}</p>
+<div class="page-head">
+  <div>
+    <p class="eyebrow">{{ n.kind_label }}, <span class="mono">{{ n.account }}</span></p>
+    <h1>{{ n|who }}</h1>
+  </div>
+  <span id="status-tag" class="tag tag-{{ n.status }}">{% if n.status == "staff_confirmed" %}{% icon "check" %}{% endif %}{{ n.get_status_display }}</span>
+</div>
+
+{% if n.status == "internal" or n.status == "unused" %}
+<div class="callout neutral reveal" style="margin-bottom:20px">{% if n.status == "internal" %}예시클라우드 사내 계정이라{% else %}안 쓰는 계정으로 지정돼{% endif %} 고객 안내를 보내지 않고, 담당자 확인도 하지 않습니다. 작업 일정만 확인하세요.
+  <a href="{% url 'internal_accounts' %}">사내/안 쓰는 계정 목록</a></div>
+{% endif %}
+{% with r=n.review_reasons|reasons %}{% if r %}
+<div class="callout reveal" style="margin-bottom:20px"><strong>확인할 점</strong>
+  <ul class="notes" style="color:inherit">{% for x in r %}<li>{{ x }}</li>{% endfor %}</ul>
+  {% if "account not in customer master" in n.review_reasons and can_manage %}<p style="margin:8px 0 0"><a href="{% url 'customer_new' %}?account={{ n.account|urlencode }}">이 계정을 고객 정보에 추가</a></p>{% endif %}
+</div>
+{% endif %}{% endwith %}
+
+<div class="grid-2">
+  {% if partner and partner.has_template %}
+  <section class="card reveal">
+    <h2 style="margin-top:0">{{ partner.label }} Outlook 안내문</h2>
+    <p class="callout" style="margin:0 0 16px">이 고객의 안내는 예시클라우드가 아니라 <span class="mono">{{ partner.sender }}</span>에서 보냅니다. Outlook에서 <strong>보내는 사람</strong>과 <strong>받는 사람</strong>을 꼭 확인하세요. 보낸 메일이 메일함에 들어오면 '고객 발송 확인'으로 바뀝니다.</p>
+    {% include "web/_copy_field.html" with id="draft-from" label="보내는 사람" value=partner.sender what="from" must=True %}
+    {% include "web/_copy_field.html" with id="draft-to" label=to_label value=to what="to" must=True %}
+    {% if cc %}{% include "web/_copy_field.html" with id="draft-cc" label="참조" value=cc what="cc" %}{% endif %}
+    {% if bcc %}{% include "web/_copy_field.html" with id="draft-bcc" label="숨은참조" value=bcc what="bcc" %}{% endif %}
+    {% include "web/_copy_field.html" with id="draft-subject" label="제목" value=n.subject what="subject" cls="plain" %}
+    <div class="field"><div class="inline" style="justify-content:space-between;margin-bottom:6px">
+        <span class="label" id="body-label">본문</span>
+        <span class="inline">
+          {% if body_html %}<button type="button" data-copy-target="draft-body" data-copy-html="draft-body-html" data-what="body" data-record-url="{% url 'notification_copied' n.pk %}">{% icon "copy" %}본문 복사 (표 포함)</button>{% endif %}
+          <button type="button" class="{% if body_html %}ghost{% endif %}" data-copy-target="draft-body" data-what="body" data-record-url="{% url 'notification_copied' n.pk %}">{% icon "copy" %}{% if body_html %}글자만 복사{% else %}본문 복사{% endif %}</button>
+        </span>
+      </div>
+      {% if body_html %}
+      <template id="draft-body-html">{{ body_html }}</template>
+      <div class="draft-preview" aria-labelledby="body-label">{{ body_html }}</div>
+      <p class="help">위 모양 그대로(표 포함) 붙여넣어집니다. 메일 쓰기 화면에 붙여넣은 뒤 보내는 사람과 받는 사람을 확인하세요.</p>
+      <details class="fold"><summary>글자로 보기</summary><textarea id="draft-body" class="draft" readonly aria-labelledby="body-label">{{ n.body }}</textarea></details>
+      {% else %}
+      <textarea id="draft-body" class="draft" readonly aria-labelledby="body-label">{{ n.body }}</textarea>
+      {% endif %}
+      <div id="draft-body-note" class="copied" aria-live="polite"></div>
+    </div>
+    <p style="margin:0"><a href="{% url 'notice' n.notice.pk %}">KT 공지 원문 보기</a></p>
+  </section>
+  {% elif partner %}
+  <section class="card reveal">
+    <h2 style="margin-top:0">{{ partner.label }} 별도 발송</h2>
+    <p>이 고객의 안내는 예시클라우드가 아니라 <span class="mono">{{ partner.sender }}</span>에서 따로 보냅니다. 그 주소에서 보낸 안내 메일이 메일함에 들어오면 '고객 발송 확인'으로 바뀌고, 이후 담당자 확인을 합니다.</p>
+    <p style="margin:0"><a href="{% url 'notice' n.notice.pk %}">KT 공지 원문 보기</a></p>
+  </section>
+  {% else %}
+  <section class="card reveal">
+    <h2 style="margin-top:0">Outlook 안내문</h2>
+    <div class="field"><span class="label" id="to-label">받는 사람 ({{ n.recipients|length }}명)</span>
+      <div class="copy">
+        <input type="text" id="draft-to" class="mono" value="{{ to }}" readonly aria-labelledby="to-label">
+        <button type="button" class="ghost" data-copy-target="draft-to" data-what="to" data-record-url="{% url 'notification_copied' n.pk %}">{% icon "copy" %}복사</button>
+      </div><div id="draft-to-note" class="copied" aria-live="polite"></div>
+    </div>
+    <div class="field"><span class="label" id="subject-label">제목</span>
+      <div class="copy">
+        <input type="text" id="draft-subject" value="{{ n.subject }}" readonly aria-labelledby="subject-label">
+        <button type="button" class="ghost" data-copy-target="draft-subject" data-what="subject" data-record-url="{% url 'notification_copied' n.pk %}">{% icon "copy" %}복사</button>
+      </div><div id="draft-subject-note" class="copied" aria-live="polite"></div>
+    </div>
+    <div class="field"><div class="inline" style="justify-content:space-between;margin-bottom:6px">
+        <span class="label" id="body-label">본문</span>
+        <button type="button" data-copy-target="draft-body" data-what="body" data-record-url="{% url 'notification_copied' n.pk %}">{% icon "copy" %}본문 복사</button>
+      </div>
+      <textarea id="draft-body" class="draft" readonly aria-labelledby="body-label">{{ n.body }}</textarea>
+      <div id="draft-body-note" class="copied" aria-live="polite"></div>
+    </div>
+  </section>
+  {% endif %}
+
+  <aside class="stack">
+    <section class="confirm-box reveal">
+      <h2 style="margin-top:0">담당자 확인</h2>
+      {% if n.status == "staff_confirmed" %}
+        <p><span class="tag dark">{% icon "check" %}확인 완료</span></p>
+        <dl class="facts"><dt>확인한 사람</dt><dd>{{ n.staff_name }}</dd><dt>확인 시각</dt><dd class="mono">{{ n.staff_confirmed_at|date:"Y.m.d H:i" }}</dd></dl>
+        <form method="post" action="{% url 'staff_unconfirm' n.pk %}" style="margin-top:12px" data-needs-actor>
+          {% csrf_token %}
+          <label for="unconfirm-actor">취소하는 사람</label>
+          <div class="inline" style="margin-top:6px"><input type="text" id="unconfirm-actor" name="actor" data-actor-field maxlength="50" placeholder="예: 홍길동" autocomplete="off" spellcheck="false" style="width:140px">
+            <button type="submit" class="ghost small">확인 취소</button></div>
+        </form>
+      {% elif confirmable %}
+        <form method="post" action="{% url 'staff_confirm' %}" data-needs-actor>
+          {% csrf_token %}<input type="hidden" name="ids" value="{{ n.pk }}"><input type="hidden" name="next" value="{{ request.path }}">
+          <label for="confirm-actor">확인한 사람</label>
+          <div class="inline" style="margin-top:6px"><input type="text" id="confirm-actor" name="actor" data-actor-field maxlength="50" placeholder="예: 홍길동" autocomplete="off" spellcheck="false" style="flex:1">
+            <button type="submit">{% icon "check" %}담당자 확인</button></div>
+        </form>
+      {% elif n.status == "internal" or n.status == "unused" %}
+        <p class="help">{{ n.get_status_display }}은 담당자 확인이 필요 없습니다.</p>
+      {% else %}
+        <p class="help">고객에게 보낸 메일이 확인되거나 직접 발송을 기록하면 담당자 확인을 할 수 있습니다.</p>
+      {% endif %}
+    </section>
+
+    <section class="card reveal">
+      <h2 style="margin-top:0">고객에게 보낸 메일</h2>
+      {% for s in sent %}
+        <div style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px">
+          <div class="inline" style="justify-content:space-between"><span class="mono">{{ s.mail.seen.header.date|date:"m.d H:i"|default:"시각 없음" }}</span>
+            <a href="{% url 'sent_mail' s.mail.pk %}">메일 보기</a></div>
+          {% if partner %}<div class="help">{{ partner.label }} 쪽 발송 메일</div>{% else %}<div class="help">받는 사람 중 고객 이메일: {{ s.matched|join:", "|default:"없음" }}</div>{% endif %}
+        </div>
+      {% empty %}
+        <p class="help">아직 확인된 메일이 없습니다 (발송 미확인).</p>
+      {% endfor %}
+      {% if n.status != "sent_copy_confirmed" and n.status != "staff_confirmed" and n.status != "internal" and n.status != "unused" %}
+      <form method="post" action="{% url 'notification_sent' n.pk %}" style="margin-top:16px" data-needs-actor>
+        {% csrf_token %}
+        <label for="sent-note">메일함에 기록이 안 남는 경우 직접 기록</label>
+        <div class="inline" style="margin-top:6px"><input type="text" id="sent-note" name="note" maxlength="500" placeholder="예: 담당자 요청으로 따로 보냄" autocomplete="off" style="flex:1"></div>
+        <label for="sent-actor" style="display:block;margin-top:10px">기록하는 사람</label>
+        <div class="inline" style="margin-top:6px"><input type="text" id="sent-actor" name="actor" data-actor-field maxlength="50" placeholder="예: 홍길동" autocomplete="off" spellcheck="false" style="width:140px">
+          <button type="submit" class="ghost">발송 기록</button></div>
+      </form>
+      {% endif %}
+    </section>
+
+    {% if not partner and sending %}
+    <section class="card reveal" id="sending">
+      <h2 style="margin-top:0">자동 발송 <span class="tag">{{ sending.mode_label }}</span></h2>
+      {% for d in dispatches %}
+        <div style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px">
+          <div class="inline" style="justify-content:space-between"><span class="mono">{{ d.created_at|date:"m.d H:i" }}</span>
+            <span><span class="tag{% if d.state == 'failed' %} red{% elif d.state == 'held' %} yellow{% elif d.state == 'done' %} green{% endif %}">{{ d.get_mode_display }} {{ d.get_state_display }}</span></span></div>
+          <div class="help mono">{{ d.to|join:", " }}{% if d.cc %}, 참조 {{ d.cc|length }}명{% endif %}{% if d.bcc %}, 숨은참조 {{ d.bcc|length }}명{% endif %}{% if d.by %} ({{ d.by }}){% endif %}</div>
+          {% if d.error %}<div class="help">{{ d.error }}</div>{% endif %}
+        </div>
+      {% empty %}
+        <p class="help">발송 기록 없음</p>
+      {% endfor %}
+      {% if sending.can_resend %}
+      <form method="post" action="{% url 'notification_send' n.pk %}" data-needs-actor style="margin-top:16px">{% csrf_token %}
+        <label for="send-actor">발송하는 사람</label>
+        <div class="inline" style="margin-top:6px"><input type="text" id="send-actor" name="actor" data-actor-field maxlength="50" placeholder="예: 홍길동" autocomplete="off" spellcheck="false" style="width:140px">
+          <button type="submit">{% icon "mail" %}발송하기</button></div>
+      </form>
+      {% elif sending.automatic %}
+      <p class="help" style="margin:16px 0 0">다음 수집 때 자동 발송</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <section class="card reveal">
+      <h2 style="margin-top:0">작업 정보</h2>
+      <dl class="facts">
+        <dt>안내번호</dt><dd class="mono">{{ n.number }}</dd>
+        <dt>작업 일시</dt><dd>{% if n.notice.category == "kt_postpone" and n.work_id %}{{ n.work.starts_at|date:"Y. m. d H:i" }}{% if n.work.ends_at %} ~ {{ n.work.ends_at|date:"H:i" }}{% endif %}{% else %}{{ n.notice.schedule }}{% endif %}</dd>
+        {% if postponed %}<dt>연기</dt><dd>다음 일정: {{ postponed.next }}{% with r=postponed.rework %}{% if r %}, <a href="{% if partner %}{% url 'channel_work' partner.pk r.pk %}{% else %}{% url 'work' r.pk %}{% endif %}">재작업 {{ r.starts_at|date:"m.d (D) H:i" }}</a>{% endif %}{% endwith %}</dd>{% endif %}
+        {% if n.work.rework_of_id %}{% with o=n.work.rework_of %}<dt>연기된 작업</dt><dd><a href="{% if partner %}{% url 'channel_work' partner.pk o.pk %}{% else %}{% url 'work' o.pk %}{% endif %}">{{ o.starts_at|date:"m.d (D) H:i" }}</a></dd>{% endwith %}{% endif %}
+        {% if servers %}<dt>대상 서버</dt><dd class="mono">{{ servers }}</dd>{% endif %}
+        {% if n.group_id %}<dt>그룹</dt><dd>{{ n.group.name }}{% if group_servers.mine %} <span class="mono">({{ group_servers.mine|join:", " }})</span>{% endif %}</dd>{% endif %}
+        {% if group_servers.unknown %}<dt>그룹에 없는 서버</dt><dd class="mono">{{ group_servers.unknown|join:", " }} <a href="{% url 'channel_groups' partner.pk %}" style="font-family:inherit">그룹 관리</a></dd>{% endif %}
+        <dt>KT 공지</dt><dd><a href="{% url 'notice' n.notice.pk %}">원문 보기</a></dd>
+      </dl>
+    </section>
+  </aside>
+</div>
+
+<h2>KT 공지 원문 <span class="muted">{{ kt_mails|length }}통</span></h2>
+<section class="card reveal kt-originals">{% for m in kt_mails %}
+  <details class="fold">
+    <summary><span><span class="mono">{{ m.at|date:"m.d H:i" }}</span> {{ m.mail.category|category }}{% if n.notice_id in m.pks %} <span class="tag">이 안내</span>{% endif %}{% if m.count > 1 %} <span class="muted">같은 메일 {{ m.count }}통</span>{% endif %}</span></summary>
+    {% include "web/_mail_body.html" with body=m.mail.seen.body title="KT 공지 원문" %}
+  </details>{% endfor %}
+</section>
+
+<h2>처리 이력</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>시각</th><th>상태</th><th>내용</th><th>사람</th></tr></thead>
+  <tbody>{% for e, label in events %}
+    <tr><td class="when" data-sort-value="{{ e.at|date:'c' }}">{{ e.at|date:"m.d H:i:s" }}</td><td><span class="tag tag-{{ e.status }}">{{ label }}</span></td>
+      <td>{{ e.note }}</td><td>{{ e.actor|default:"" }}{% if not e.actor %}{% if e.by %}{{ e.by.get_username }}{% else %}<span class="muted">자동</span>{% endif %}{% endif %}</td></tr>
+  {% endfor %}</tbody>
+</table>
+</div>
+{% endblock %}

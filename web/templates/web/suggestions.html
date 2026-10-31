@@ -1,0 +1,58 @@
+{% extends "web/base.html" %}
+{% load ko %}
+{% block title %}건의사항{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>건의사항</h1></div>
+</div>
+
+<div class="grid-2">
+  <section>
+    <div class="inline" style="margin-bottom:12px" role="group" aria-label="보기">
+      <a class="button small {% if show != 'open' %}ghost{% endif %}" href="?show=open"{% if show == 'open' %} aria-current="true"{% endif %}>처리 전 {{ open_count }}</a>
+      <a class="button small {% if show != 'closed' %}ghost{% endif %}" href="?show=closed"{% if show == 'closed' %} aria-current="true"{% endif %}>처리 끝</a>
+      <a class="button small {% if show != 'all' %}ghost{% endif %}" href="?show=all"{% if show == 'all' %} aria-current="true"{% endif %}>전체</a>
+    </div>
+    <div class="stack">
+    {% for s in rows %}
+      <article class="card suggestion reveal">
+        <div class="inline" style="justify-content:space-between">
+          <div class="inline">
+            <span class="tag k-{{ s.kind }}">{{ s.get_kind_display }}</span>
+            <span class="tag s-{{ s.status }}">{{ s.get_status_display }}</span>
+            {% if s.page %}<span class="muted" style="font-size:0.85rem">{{ s.page }}</span>{% endif %}
+          </div>
+          <a href="{% url 'suggestion' s.pk %}" class="muted" style="font-size:0.85rem">#{{ s.pk }} 처리하기</a>
+        </div>
+        <p class="suggestion-body">{{ s.body|linebreaksbr }}</p>
+        <p class="help" style="margin:0">{{ s.author|default:"이름 없음" }}, {{ s.created_at|date:"Y.m.d H:i" }}</p>
+        {% if s.reply %}
+          <div class="reply"><strong>{{ s.handled_by }}</strong> <span class="muted">{{ s.handled_at|date:"m.d H:i" }}</span><br>{{ s.reply|linebreaksbr }}</div>
+        {% endif %}
+      </article>
+    {% empty %}
+      <div class="card"><p class="help" style="margin:0">{% if show == 'open' %}처리 전인 건의사항이 없습니다.{% else %}건의사항이 없습니다.{% endif %}</p></div>
+    {% endfor %}
+    </div>
+  </section>
+
+  <form method="post" class="card reveal">
+    {% csrf_token %}
+    <h2 style="margin-top:0">건의하기</h2>
+    <fieldset class="field" style="border:0;padding:0;margin:0 0 16px">
+      <legend class="label" style="font-weight:600;font-size:0.88rem;margin-bottom:6px">종류</legend>
+      <div class="inline">{% for v, l in kinds %}
+        <label style="font-weight:400"><input type="radio" name="kind" value="{{ v }}"{% if forloop.first %} checked{% endif %}> {{ l }}</label>
+      {% endfor %}</div>
+    </fieldset>
+    <div class="field"><label for="f-page">어느 화면 <span class="muted" style="font-weight:400">(선택)</span></label>
+      <input type="text" id="f-page" name="page" maxlength="200" placeholder="예: 작업 공지 > 고객별 안내" autocomplete="off"></div>
+    <div class="field"><label for="f-body">내용</label>
+      <textarea id="f-body" name="body" rows="7" maxlength="5000" required placeholder="무엇을 하려다 어떤 일이 있었는지, 어떻게 바뀌면 좋을지 적어 주세요."></textarea></div>
+    <div class="field"><label for="f-author">이름 <span class="muted" style="font-weight:400">(선택)</span></label>
+      <input type="text" id="f-author" name="actor" data-actor-field maxlength="50" placeholder="예: 홍길동" autocomplete="off" spellcheck="false"></div>
+    <button type="submit">{% icon "message" %}건의사항 남기기</button>
+    <p class="help" style="margin-top:12px">고객 정보나 비밀번호는 적지 마세요.</p>
+  </form>
+</div>
+{% endblock %}

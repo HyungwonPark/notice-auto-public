@@ -1,0 +1,16 @@
+{% load ko %}
+<h2>발송이 늦은 안내 <span class="muted">{{ late|length }}건</span></h2>
+<div class="table-wrap reveal">
+<table>
+  <thead><tr><th>작업 일시</th><th>작업</th><th>구분</th><th>고객</th><th>상태</th></tr></thead>
+  <tbody>{% for n in late %}
+    <tr data-href="{% url 'notification' n.pk %}">
+      <td class="when" data-sort-value="{{ n.work.starts_at|date:'c' }}">{{ n.work.starts_at|date:"m.d H:i"|default:"-" }}</td>
+      <td>{% if n.work %}<a href="{% if channel %}{% url 'channel_work' channel.pk n.work.pk %}{% elif n.tab %}{% url 'channel_work' n.tab.pk n.work.pk %}{% else %}{% url 'work' n.work.pk %}{% endif %}">{{ n.work.title }}</a>{% else %}{{ n.notice.title|default:"-" }}{% endif %}{% if n.tab and not channel %} <span class="tag">{{ n.tab.label }}</span>{% endif %}</td>
+      <td>{{ n.kind_label }}</td>
+      <td><a class="row-title" href="{% url 'notification' n.pk %}">{{ n|who }}</a></td>
+      <td><span class="tag tag-{{ n.status }}">{{ n.get_status_display }}</span></td>
+    </tr>
+  {% empty %}<tr><td colspan="5" class="empty">없습니다.</td></tr>{% endfor %}</tbody>
+</table>
+</div>

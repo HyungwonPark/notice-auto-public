@@ -1,0 +1,95 @@
+{% extends "web/base.html" %}
+{% load ko %}
+{% block title %}{{ work.title }}{% endblock %}
+{% block content %}
+<p>{% if channel %}<a href="{% url 'channel' channel.pk %}" class="muted">{% icon "arrow-left" %} {{ channel.label }}</a>{% else %}<a href="{% url 'dashboard' %}" class="muted">{% icon "arrow-left" %} 작업 공지</a>{% endif %}</p>
+<div class="page-head">
+  <div>
+    <p class="eyebrow mono">{{ work.starts_at|date:"Y.m.d (D) H:i" }}{% if work.ends_at %} ~ {{ work.ends_at|date:"m.d (D) H:i" }}{% endif %}</p>
+    <h1>{{ work.title }}{% if row.postponed %} <span class="tag yellow">연기</span>{% endif %}{% if work.rework_of_id %} <span class="tag">재작업</span>{% endif %}</h1>
+  </div>
+  {% if row %}<span class="tag {% if row.done %}dark{% elif row.state == 'warn' %}red{% endif %}">{% if row.done %}지난 작업{% else %}진행 중{% endif %}</span>{% endif %}
+</div>
+
+<div class="grid-2">
+  {% if notice %}
+  <div class="card reveal">
+    <dl class="facts">
+      <dt>KT 공지의 작업 일시</dt><dd>{{ notice.schedule }}</dd>
+      {% if row.postponed %}<dt>연기</dt><dd>다음 일정: {{ row.postponed.next }}{% with r=row.postponed.rework %}{% if r %}, <a href="{% if channel %}{% url 'channel_work' channel.pk r.pk %}{% else %}{% url 'work' r.pk %}{% endif %}">재작업 {{ r.starts_at|date:"m.d (D) H:i" }}</a>{% endif %}{% endwith %}</dd>{% endif %}
+      {% if work.rework_of_id %}{% with o=work.rework_of %}<dt>연기된 작업</dt><dd><a href="{% if channel %}{% url 'channel_work' channel.pk o.pk %}{% else %}{% url 'work' o.pk %}{% endif %}">{{ o.starts_at|date:"m.d (D) H:i" }}{% if o.ends_at %} ~ {{ o.ends_at|date:"H:i" }}{% endif %}</a></dd>{% endwith %}{% endif %}
+      {% if notice.impact %}<dt>작업 영향</dt><dd>{{ notice.impact }}</dd>{% endif %}
+      {% if notice.detail %}<dt>상세 내용</dt><dd>{{ notice.detail }}</dd>{% endif %}
+      <dt>KT 공지 원문</dt>
+      <dd class="kt"><ul class="kt-mails">{% for m in kt_list %}
+        <li><a href="{% url 'notice' m.mail.pk %}"><span class="mono">{{ m.at|date:"m.d H:i" }}</span> {{ m.mail.category|category }}</a>
+          <span class="muted">{{ m.who }}{% if m.count > 1 %} (같은 메일 {{ m.count }}통){% endif %}</span></li>
+      {% endfor %}</ul></dd>
+    </dl>
+  </div>
+  {% else %}<div></div>{% endif %}
+
+  {% if row %}
+  <div class="card reveal">
+    <dl class="facts">
+      <dt>사전 공지</dt><dd style="white-space:normal">{% include "web/_stage.html" with s=row.notice empty="받은 공지 없음" %}</dd>
+      <dt>완료 공지</dt><dd style="white-space:normal">{% include "web/_stage.html" with s=row.complete empty="완료 공지 전" %}</dd>
+    </dl>
+    {% if row.closure %}
+      <p class="help" style="margin:12px 0 8px">{{ row.closure.closed_by }} 님이 {{ row.closure.closed_at|date:"m.d H:i" }}에 지난 작업으로 넘겼습니다.</p>
+      <form method="post" action="{% url 'work_close' work.pk %}">{% csrf_token %}
+        <input type="hidden" name="channel" value="{{ channel.pk|default:'' }}">
+        <input type="hidden" name="reopen" value="1"><button type="submit" class="ghost small">다시 진행 중으로</button></form>
+    {% elif not row.done %}
+      <form method="post" action="{% url 'work_close' work.pk %}" data-needs-actor style="margin-top:12px">{% csrf_token %}
+        <input type="hidden" name="channel" value="{{ channel.pk|default:'' }}">
+        <div class="inline"><label for="close-actor" class="muted">넘기는 사람</label>
+          <input type="text" id="close-actor" name="actor" data-actor-field maxlength="50" placeholder="예: 홍길동" autocomplete="off" spellcheck="false" style="width:140px">
+          <button type="submit" class="ghost small">지난 작업으로 넘기기</button></div>
+      </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<form method="post" action="{% url 'staff_confirm' %}" data-needs-actor>
+  {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
+  <div class="page-head" style="margin:32px 0 0">
+    <h2 style="margin:0">고객별 안내{% if channel %} <span class="muted">{{ channel.label }}</span>{% endif %}</h2>
+    <div class="inline">
+      <label for="confirm-actor" class="muted" style="font-weight:400">확인한 사람</label>
+      <input type="text" id="confirm-actor" name="actor" data-actor-field maxlength="50" placeholder="예: 홍길동" autocomplete="off" spellcheck="false" style="width:140px">
+      <button type="submit">{% icon "check" %}선택한 안내 담당자 확인</button>
+    </div>
+  </div>
+  {% for g in groups %}
+  <h3 class="group-title">{{ g.label }} <span class="muted">{{ g.rows|length }}건</span>
+    {% if g.kt %}<span class="group-meta">KT 공지 {{ g.kt.seen.header.date|date:"m.d H:i" }} 받음 (<a href="{% url 'notice' g.kt.pk %}">원문</a>)</span>{% endif %}</h3>
+  <div class="table-wrap reveal">
+  <table>
+    <thead><tr>
+      <th class="check" data-no-sort><input type="checkbox" data-select-all aria-label="{{ g.label }} 중 확인할 수 있는 안내 모두 선택"></th>
+      <th>고객</th><th>계정</th><th>대상 서버</th><th class="num">받는 사람</th><th>상태</th><th>확인할 점</th>
+    </tr></thead>
+    <tbody>
+    {% for n in g.rows %}
+      <tr data-href="{% url 'notification' n.pk %}">
+        <td class="check"><input type="checkbox" name="ids" value="{{ n.pk }}" aria-label="{{ n|who }} {{ g.label }} 담당자 확인"{% if n.status not in confirmable %} disabled{% endif %}></td>
+        <td><a class="row-title" href="{% url 'notification' n.pk %}">{{ n|who }}</a></td>
+        <td class="mono">{{ n.account }}</td>
+        <td class="mono">{{ n.notice.servers|join:", " }}{% if n.notice.lbs %} {{ n.notice.lbs|join:", " }}{% endif %}</td>
+        <td class="num">{% if channel %}<span class="muted">별도</span>{% else %}{{ n.recipients|length }}명{% endif %}</td>
+        <td data-sort-value="{{ n.status|status_order }}"><span class="tag tag-{{ n.status }}">{% if n.status == "staff_confirmed" %}{% icon "check" %}{% endif %}{{ n.get_status_display }}</span>
+          {% if n.status == "staff_confirmed" %}<div class="help">{{ n.staff_name }}</div>{% endif %}
+          {% if n.copies.all|length > 1 %}<div class="help">보낸 메일 {{ n.copies.all|length }}통</div>{% endif %}</td>
+        <td>{% with r=n.review_reasons|reasons %}{% if r %}<ul class="notes">{% for x in r %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}{% endwith %}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="7" class="empty">{% if g.kind == "complete" %}아직 KT {% if work.incident %}복구{% else %}완료{% endif %} 공지가 오지 않았습니다.{% else %}받은 사전 공지가 없습니다.{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endfor %}
+</form>
+{% endblock %}

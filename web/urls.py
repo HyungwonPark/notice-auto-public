@@ -1,0 +1,42 @@
+from django.contrib.auth import views as auth_views
+from django.urls import path
+
+from . import views
+
+urlpatterns = [
+    path("", views.dashboard, name="dashboard"),
+    path("calendar/", views.calendar_view, name="calendar"),
+    path("login/", auth_views.LoginView.as_view(template_name="web/login.html"), name="login"),
+    path("logout/", auth_views.LogoutView.as_view(), name="logout"),
+    path("password/", views.PasswordChange.as_view(), name="password_change"),
+    path("scan/", views.request_scan_view, name="request_scan"),
+    path("works/<int:pk>/", views.work_detail, name="work"),
+    path("works/<int:pk>/close/", views.work_close, name="work_close"),
+    path("channels/<int:pk>/", views.channel, name="channel"),
+    path("channels/<int:pk>/groups/", views.channel_groups, name="channel_groups"),
+    path("channels/<int:channel_pk>/works/<int:pk>/", views.work_detail, name="channel_work"),
+    path("notices/<int:pk>/", views.notice_detail, name="notice"),
+    path("n/<int:pk>/", views.notification_detail, name="notification"),
+    path("n/<int:pk>/copied/", views.notification_copied, name="notification_copied"),
+    path("n/<int:pk>/sent/", views.notification_sent, name="notification_sent"),
+    path("n/<int:pk>/send/", views.notification_send, name="notification_send"),
+    path("n/<int:pk>/unconfirm/", views.staff_unconfirm, name="staff_unconfirm"),
+    path("n/confirm/", views.staff_confirm, name="staff_confirm"),
+    path("sent/", views.sent_mails, name="sent_mails"),
+    path("sent/<int:pk>/", views.sent_mail_detail, name="sent_mail"),
+    path("records/", views.records, name="records"),
+    path("config/", views.config, name="config"),
+    path("records.csv", views.records_csv, name="records_csv"),
+    path("review/", views.review, name="review"),
+    path("review/dismiss/", views.notices_dismiss, name="notices_dismiss"),
+    path("customers/", views.customers, name="customers"),
+    path("customers/new/", views.customer_new, name="customer_new"),
+    path("customers.csv", views.customers_csv, name="customers_csv"),
+    path("customers/sync/", views.customers_sync, name="customers_sync"),
+    path("customers/<int:pk>/edit/", views.customer_edit, name="customer_edit"),
+    path("customers/internal/", views.internal_accounts, name="internal_accounts"),
+    path("customers/internal/<int:pk>/remove/", views.internal_remove, name="internal_remove"),
+    path("customers/internal/company/<int:pk>/remove/", views.internal_company_remove, name="internal_company_remove"),
+    path("suggestions/", views.suggestions, name="suggestions"),
+    path("suggestions/<int:pk>/", views.suggestion_detail, name="suggestion"),
+]
