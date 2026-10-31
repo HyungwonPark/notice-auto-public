@@ -1,0 +1,19 @@
+# Real data and secrets never enter git (CLAUDE.md rule 9)
+/private/
+*.csv
+*.xlsx
+*.env
+!config/*.env.example
+
+# Runtime
+/var/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.hypothesis/
+*.sqlite3
+*.db
+
+# Personal Claude Code overrides
+.claude/settings.local.json
