@@ -18,15 +18,25 @@
     {% for value, label in kinds %}<option value="{{ value }}"{% if value == kind %} selected{% endif %}>{{ label }}</option>{% endfor %}
   </select>
   <label style="font-weight:400"><input type="checkbox" name="review" value="1"{% if review_only %} checked{% endif %}> 확인 필요만</label>
+  <label style="font-weight:400"><input type="checkbox" name="added" value="1"{% if added_only %} checked{% endif %}> 사이트에서 추가만 <span class="muted">{{ added_count }}</span></label>
   <button type="submit" class="ghost">찾기</button>
 </form>
 <p class="help">{{ rows|length }}개{% if rows|length == 500 %} (처음 500개){% endif %}{% if opsdb %}<br>운영 DB(일반) 마지막 조회
   {% if opsdb_last and opsdb_last.ok %}{{ opsdb_last.finished_at|date:"m.d H:i" }} {{ opsdb_last.rows }}건{% if opsdb_last.batch %}, 고객 정보 갱신{% endif %}{% elif opsdb_last %}<span class="tag red" title="{{ opsdb_last.error }}">{{ opsdb_last.started_at|date:"m.d H:i" }} 조회 실패</span>{% else %}아직 조회 전{% endif %}{% if opsdb_stale %} <span class="tag red">15분 넘게 조회하지 못함</span>{% endif %}{% endif %}</p>
+{% if added_only and can_manage %}<form method="post" action="{% url 'customers_remove' %}" data-needs-actor id="added">
+  {% csrf_token %}
+  {% if rows %}<div class="inline" style="justify-content:flex-end;margin-bottom:8px">
+    <label for="remove-actor" class="muted" style="font-weight:400">삭제한 사람</label>
+    <input type="text" id="remove-actor" name="actor" data-actor-field maxlength="50" placeholder="예: 홍길동" autocomplete="off" spellcheck="false" style="width:140px">
+    <button type="submit" class="ghost">{% icon "trash" %}선택한 고객 삭제</button>
+  </div>{% endif %}
+{% endif %}
 <div class="table-wrap reveal">
 <table>
-  <thead><tr><th>구분</th><th>계정</th><th>고객</th><th>담당자</th><th class="num">이메일</th><th>상태</th><th>입력 방식</th><th>바뀐 날</th></tr></thead>
+  <thead><tr>{% if added_only and can_manage %}<th class="check" data-no-sort><input type="checkbox" data-select-all aria-label="모두 선택"></th>{% endif %}<th>구분</th><th>계정</th><th>고객</th><th>담당자</th><th class="num">이메일</th><th>상태</th><th>입력 방식</th>{% if added_only %}<th>운영 DB</th>{% endif %}<th>바뀐 날</th></tr></thead>
   <tbody>{% for r in rows %}
     <tr>
+      {% if added_only and can_manage %}<td class="check"><input type="checkbox" name="ids" value="{{ r.pk }}" aria-label="{{ r.account_key }} 선택"></td>{% endif %}
       <td>{{ r.get_kind_display }}</td>
       <td class="mono"><a class="row-title" href="{% url 'customer_edit' r.pk %}">{{ r.account_key }}</a></td>
       <td>{{ r.display_name }}</td>
@@ -34,9 +44,32 @@
       <td class="num">{{ r.emails|length }}개</td>
       <td>{% if r.account_key in internal %}<span class="tag">{{ internal|get:r.account_key }}</span>{% elif r.status == 'ok' %}<span class="tag green">정상</span>{% else %}<span class="tag red">확인 필요</span>{% endif %}</td>
       <td class="muted">{{ r.get_source_display }}{% if r.web_only %}, 웹에서만 관리{% endif %}</td>
+      {% if added_only %}<td>{% if r.kind != "general" %}<span class="muted">-</span>{% elif r.account_key in db_keys %}있음{% else %}<span class="tag yellow">없음</span>{% endif %}</td>{% endif %}
       <td class="when" data-sort-value="{{ r.updated_at|date:'c' }}">{{ r.updated_at|date:"m.d" }}</td>
     </tr>
-  {% empty %}<tr><td colspan="8" class="empty">찾는 고객이 없습니다.</td></tr>{% endfor %}</tbody>
+  {% empty %}<tr><td colspan="10" class="empty">찾는 고객이 없습니다.</td></tr>{% endfor %}</tbody>
 </table>
 </div>
+{% if added_only and can_manage %}</form>{% endif %}
+{% if added_only and removed %}
+<form method="post" action="{% url 'customers_remove' %}" id="removed">
+  {% csrf_token %}<input type="hidden" name="undo" value="1">
+  <div class="page-head" style="margin:32px 0 0">
+    <h2 style="margin:0">삭제한 고객 <span class="muted">{{ removed|length }}개</span></h2>
+    {% if can_manage %}<button type="submit" class="ghost">{% icon "refresh" %}선택한 고객 되돌리기</button>{% endif %}
+  </div>
+  <div class="table-wrap reveal">
+  <table>
+    <thead><tr>{% if can_manage %}<th class="check" data-no-sort><input type="checkbox" data-select-all aria-label="모두 선택"></th>{% endif %}<th>구분</th><th>계정</th><th>고객</th><th>삭제한 사람</th><th>삭제한 날</th></tr></thead>
+    <tbody>{% for r in removed %}
+      <tr>
+        {% if can_manage %}<td class="check"><input type="checkbox" name="ids" value="{{ r.pk }}" aria-label="{{ r.account_key }} 선택"></td>{% endif %}
+        <td>{{ r.get_kind_display }}</td><td class="mono">{{ r.account_key }}</td><td>{{ r.display_name }}</td>
+        <td>{{ r.removed_by }}</td><td class="when" data-sort-value="{{ r.removed_at|date:'c' }}">{{ r.removed_at|date:"m.d H:i" }}</td>
+      </tr>
+    {% endfor %}</tbody>
+  </table>
+  </div>
+</form>
+{% endif %}
 {% endblock %}

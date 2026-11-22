@@ -531,7 +531,8 @@ def _sending(n) -> dict | None:
     return {
         "mode_label": SEND_MODE_LABEL[cfg.mode],
         "automatic": automatic,  # the next scan sends it: 발송하기 only where automatic sending will not
-        "can_resend": live and not active and not automatic and n.status in dispatch.CAN_REQUEST and bool(n.recipients),
+        "can_resend": (live and not active and not automatic and n.status in dispatch.CAN_REQUEST and bool(n.recipients)
+                       and not dispatch.is_partner(n)),
     }
 
 
@@ -764,15 +765,25 @@ def _customer_rows(request):
         rows = rows.filter(kind=kind)
     if request.GET.get("review"):
         rows = rows.filter(status=CustomerAccount.Status.REVIEW)
+    if request.GET.get("added"):
+        rows = rows.filter(source=CustomerAccount.Source.WEB)
     return rows.order_by("kind", "display_name", "account_key"), q, kind
 
 
 @login_required
 def customers(request):
     rows, q, kind = _customer_rows(request)
+    added_only = bool(request.GET.get("added"))
     return render(request, "web/customers.html", {
         "rows": rows[:500],
         "q": q, "kind": kind, "kinds": CustomerAccount.Kind.choices, "review_only": bool(request.GET.get("review")),
+        "added_only": added_only,
+        "added_count": CustomerAccount.objects.filter(active=True, source=CustomerAccount.Source.WEB).count(),
+        # 사이트에서 추가: whether the company DB lists the account too, and what was deleted (to put back)
+        "db_keys": set(CustomerAccount.objects.filter(active=True, source=CustomerAccount.Source.DB)
+                       .values_list("account_key", flat=True)) if added_only else set(),
+        "removed": CustomerAccount.objects.filter(removed_at__isnull=False).order_by("-removed_at")[:50]
+        if added_only else [],
         "internal": {a: InternalAccount.Kind(k).label for a, k in InternalAccount.kinds().items()},
         "opsdb": opsdb.configured(), "opsdb_last": OpsDbSync.last(),
         "opsdb_stale": _opsdb_stale(),
@@ -811,6 +822,40 @@ def _opsdb_stale() -> bool:
     """No successful read of the company DB for three scan intervals."""
     last_ok = OpsDbSync.objects.filter(ok=True).order_by("-pk").first()
     return opsdb.configured() and (last_ok is None or last_ok.finished_at < timezone.now() - STALE_AFTER)
+
+
+@login_required
+@require_POST
+def customers_remove(request):
+    """Delete customers added on the site (관리 계정), or put deleted ones back. A deleted row stays as inactive
+    history; unsent notices for its account are judged again (고객 정보에 없는 계정)."""
+    back = redirect(reverse("customers") + "?added=1")
+    ids = request.POST.getlist("ids")
+    if request.POST.get("undo"):
+        restored = 0
+        for row in CustomerAccount.objects.filter(pk__in=ids, removed_at__isnull=False):
+            if CustomerAccount.objects.filter(kind=row.kind, account_key=row.account_key, active=True).exists():
+                messages.error(request, f"{row.account_key}: 같은 계정의 고객 정보가 이미 있어 되돌리지 않았습니다.")
+                continue
+            row.active, row.removed_at, row.removed_by = True, None, ""
+            row.save(update_fields=["active", "removed_at", "removed_by", "updated_at"])
+            restored += 1
+        if restored:
+            messages.success(request, f"고객 {restored}개를 되돌렸습니다.")
+            _refresh_notifications(request)
+        return back
+    name = _actor(request)
+    if not name:
+        messages.error(request, "삭제한 사람 이름을 입력하세요.")
+    elif not ids:
+        messages.error(request, "삭제할 고객을 고르세요.")
+    else:
+        done = CustomerAccount.objects.filter(pk__in=ids, active=True, source=CustomerAccount.Source.WEB).update(
+            active=False, removed_at=timezone.now(), removed_by=name, updated_at=timezone.now())
+        messages.success(request, f"{name} 님 이름으로 고객 {done}개를 삭제했습니다.")
+        if done:
+            _refresh_notifications(request)
+    return back
 
 
 @login_required

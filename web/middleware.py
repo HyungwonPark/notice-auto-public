@@ -27,6 +27,7 @@ class PasswordChangeRequired:
 # Pages whose changes need the 관리 계정 (user, 2026-10-22): settings, customers, recipient groups. The shared
 # sign-in sees them but cannot save. POST-only addresses go back to the page that shows them.
 MANAGE = {"config": None, "customer_new": None, "customer_edit": None, "customers_sync": "customers",
+          "customers_remove": "customers",
           "internal_accounts": None, "internal_remove": "internal_accounts",
           "internal_company_remove": "internal_accounts", "channel_groups": None}
 

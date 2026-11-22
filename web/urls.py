@@ -33,6 +33,7 @@ urlpatterns = [
     path("customers/new/", views.customer_new, name="customer_new"),
     path("customers.csv", views.customers_csv, name="customers_csv"),
     path("customers/sync/", views.customers_sync, name="customers_sync"),
+    path("customers/remove/", views.customers_remove, name="customers_remove"),
     path("customers/<int:pk>/edit/", views.customer_edit, name="customer_edit"),
     path("customers/internal/", views.internal_accounts, name="internal_accounts"),
     path("customers/internal/<int:pk>/remove/", views.internal_remove, name="internal_remove"),

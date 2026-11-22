@@ -29,7 +29,7 @@ REASON = {
     "KT sent a different notice for the same work": "KT가 같은 작업에 내용이 다른 공지를 다시 보냈습니다",
     "KT change/cancel notice received": "KT 작업 취소/변경 공지가 왔습니다",
     "several notifications match one copy": "보낸 메일 하나가 여러 안내와 겹칩니다",
-    "server not in any group": "그룹에 없는 서버가 있어 전체 받는 사람에게 보냅니다",
+    "server not in any group": "그룹에 없는 서버가 있어 받는 사람이 그룹 전체입니다",
     "copy To/Cc has none of the master emails": "보낸 메일의 받는 사람에 고객 이메일이 없습니다",
     "number matches but account differs": "안내번호는 같지만 대상 계정이 다릅니다",
     "sending failed 3 times": "자동 발송이 3번 연속 실패했습니다. 확인 후 '발송하기'를 누르세요",
