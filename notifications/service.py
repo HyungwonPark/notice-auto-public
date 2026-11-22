@@ -10,7 +10,7 @@ from django.utils import timezone
 from customers.models import CustomerAccount, InternalAccount, InternalCompany, PartnerChannel
 from mailcollect import headers, ktform
 from mailcollect.models import Notice
-from mailcollect.notices import work_title
+from mailcollect.notices import title_key
 
 from . import drafts
 from .models import Notification, NotificationEvent
@@ -125,13 +125,16 @@ def prepare_notifications() -> Counter:
     return counts
 
 
-def _split(partner: PartnerChannel | None, wave: list) -> tuple[list, list[str]]:
+def _split(partner: PartnerChannel | None, wave: list) -> tuple[list, str]:
     """Who a send goes to: one notification per group its servers belong to, or [None] for the whole 받는 사람
-    list (no groups, no server named, or a server outside the groups: those come back to be flagged)."""
+    list, with NOT_IN_GROUP when a server is outside the groups (flagged) or "" (no groups, or no server named:
+    nothing to fix, user 2026-10-21; KT's masked name in 대상서버명 is no server, customers.named_servers)."""
     if partner is None:
-        return [None], []
+        return [None], ""
     groups, unknown = partner.split([s for no in wave for s in no.servers + no.lbs])
-    return ([None], unknown) if unknown or not groups else (groups, [])
+    if unknown:
+        return [None], NOT_IN_GROUP
+    return (groups, "") if groups else ([None], "")
 
 
 def _untouched(ns: list, now) -> bool:
@@ -297,14 +300,14 @@ def match_copies() -> Counter:
         for account in accounts:
             rows = Notification.objects.filter(account=account, kind=kind)
             # A 작업 연기 공지 often names no time: its copy answers the postponement of the work of its title.
-            rows = (rows.filter(notice__category=headers.KT_POSTPONE, work__title=work_title(copy.title)) if postpone
+            rows = (rows.filter(notice__category=headers.KT_POSTPONE, work__title_key=title_key(copy.title)) if postpone
                     else rows.filter(notice__starts_at=copy.starts_at).exclude(notice__category=headers.KT_POSTPONE))
             found = list(rows.select_related("work", "group", "notice__seen__header"))
             if not found or any(n.copies.filter(pk=copy.pk).exists() for n in found):
                 continue
             if len(found) > 1:  # several works start together for this account: the work title decides
-                title = work_title(copy.title)
-                found = [n for n in found if n.work and n.work.title == title] or found
+                key = title_key(copy.title)
+                found = [n for n in found if n.work and n.work.title_key == key] or found
             found = _round_for(found, sent_at(copy))
             by_group = False
             if channel is not None and len(found) > 1 and len({_slot(n) for n in found}) == 1:
@@ -435,10 +438,10 @@ def _initial(notice: Notice, account: str, target_count: int, master, partner=No
 
 
 def _create(notice: Notice, account: str, kind: str, target_count: int, master, internal=None, partners=None,
-            round_: int = 1, group=None, unknown=()) -> Notification:
+            round_: int = 1, group=None, unknown: str = "") -> Notification:
     display_name, emails, reasons = _initial(notice, account, target_count, master, (partners or {}).get(account))
-    if unknown:
-        reasons.append(NOT_IN_GROUP)
+    if unknown:  # NOT_IN_GROUP (see _split)
+        reasons.append(unknown)
     internal = internal or {}
     if account in internal:  # {account: "internal" | "unused"}
         status, reasons = internal[account], []

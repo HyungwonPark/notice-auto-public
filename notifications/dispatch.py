@@ -22,6 +22,11 @@ sent by hand has left 발송 대기 before this looks at it. The rules:
    (발송 보류 → 발송 실패, 확인 필요; its copy usually confirms it). 발송하기 then sends unless a newer one turned
    up. A failed lookup sends nothing and counts like a refused attempt.
 
+ABSOLUTE (user, 2026-11-10): a 별도 발송 customer's notice (협력기관, any PartnerChannel account, active or not,
+or any notification of a recipient group) is never sent by this site, in any mode, automatic or 발송하기.
+is_partner() is checked where a mail could leave (send_one), where one is picked (eligible, automatic) and
+where a person asks (request_send); the partner sends it, this site only shows the draft.
+
 Test mode (its button left the pages on 2026-10-22; the tests and a rehearsal server still use it) sends every mail to MAIL_TEST_TO only, titled "[테스트] …" so its copy is
 never taken for a customer send (headers.NC24_PREFIXES must start the subject), and leaves the notice's status
 alone; rule 6 still looks up the real recipients, so a held notice shows what live would have done."""
@@ -144,12 +149,21 @@ def register(cfg: SensConfig) -> None:
         SendingSince.objects.get_or_create(mode=cfg.mode, defaults={"since": timezone.now()})
 
 
+def partner_accounts() -> set[str]:
+    """Accounts of every 별도 발송 tab, retired ones too: none of them is ever sent (the absolute rule above)."""
+    return {a for ch in PartnerChannel.objects.all() for a in ch.account_keys}
+
+
+def is_partner(n: Notification, accounts: set[str] | None = None) -> bool:
+    return n.group_id is not None or n.account in (partner_accounts() if accounts is None else accounts)
+
+
 def eligible(cfg: SensConfig, now=None):
     """Notices to send automatically in this run, oldest first (rule 1)."""
     now = now or timezone.now()
     active = Dispatch.objects.filter(mode=cfg.mode, state__in=Dispatch.ACTIVE).values("notification_id")
     rows = (Notification.objects.filter(status=S.DRAFT_READY).exclude(pk__in=active)
-            .exclude(account__in=list(PartnerChannel.by_account()))
+            .exclude(account__in=list(partner_accounts())).exclude(group__isnull=False)
             .select_related("work", "notice__seen__header").order_by("pk"))
     for n in rows:
         last = n.dispatches.filter(mode=cfg.mode, state=D.FAILED).order_by("-pk").first()
@@ -163,7 +177,7 @@ def automatic(n: Notification, cfg: SensConfig, now=None) -> bool:
     """Rule 1 for one notice: the scans send it by themselves, so the page offers no 발송하기 (user, 2026-10-22).
     A 별도 발송 account is never sent (eligible leaves those out)."""
     now = now or timezone.now()
-    if n.status != S.DRAFT_READY or not n.recipients:
+    if n.status != S.DRAFT_READY or not n.recipients or is_partner(n):
         return False
     if n.send_requested_by:  # 발송하기: a person decided, the automatic limits below do not apply
         return True
@@ -190,7 +204,10 @@ def _give_up(n: Notification, reason: str, note: str) -> None:
 
 
 def send_one(cfg: SensConfig, client: Client, n: Notification, by: str = "", now=None) -> str:
-    """One attempt; returns accepted / unknown / failed / gave up / held / global / already."""
+    """One attempt; returns accepted / unknown / failed / gave up / held / global / already / partner."""
+    if is_partner(n):  # the absolute rule: whoever called, a 별도 발송 notice does not leave
+        _event(n, "별도 발송 고객: 발송하지 않음", by)
+        return "partner"
     subject, to, cc, bcc, body = build(cfg, n)
     try:
         with transaction.atomic():
@@ -386,7 +403,8 @@ CAN_REQUEST = (S.SEND_FAILED, S.DRAFT_READY, S.COPIED)
 def request_send(n: Notification, name: str) -> bool:
     """발송하기 on a 발송 실패 notice, or one waiting that sending will not take by itself (e.g. it came while
     sending was off): back to 발송 대기 for the next scan, which reads the mailboxes first. Rule 6 still applies."""
-    if n.status not in CAN_REQUEST or not name or n.dispatches.filter(mode="live", state__in=Dispatch.ACTIVE).exists():
+    if (n.status not in CAN_REQUEST or not name or is_partner(n)
+            or n.dispatches.filter(mode="live", state__in=Dispatch.ACTIVE).exists()):
         return False
     with transaction.atomic():
         n.status, n.send_failures, n.send_requested_by = S.DRAFT_READY, 0, name

@@ -42,7 +42,21 @@ def kt_quote(kt_text: str, footer: tuple[str, ...] = DEFAULT.footer) -> str:
         kept.pop()
     while kept and not kept[0].strip():
         kept.pop(0)
-    return "\n".join(kept)
+    return "\n".join(_tidy_names(ln) for ln in kept)
+
+
+# 대상서버명 / 대상LB명: KT repeats a server once per disk with no space after the commas (2026-11-16, 14 names,
+# 6 servers). One unbroken line that long stretches the mail form past its width, so each name is kept once and
+# the commas get a space (user, 2026-11-20).
+NAME_LABELS = tuple(squeeze(label) for key in ("servers", "lbs") for label in DEFAULT.labels_of(key))
+
+
+def _tidy_names(line: str) -> str:
+    head, colon, names = line.partition(":")
+    if not colon or "," not in names or not squeeze(head).endswith(NAME_LABELS):
+        return line
+    unique = list(dict.fromkeys(n.strip() for n in names.split(",") if n.strip()))
+    return f"{head}: {', '.join(unique)}"
 
 
 # KT's item lines (○ 대상계정명, ㅇ 작업일시, – 상세내용, ※ 단, 1. …) and its bracketed notice title.
