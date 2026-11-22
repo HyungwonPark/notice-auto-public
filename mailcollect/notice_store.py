@@ -94,7 +94,7 @@ def _incident_work(info: notices.NoticeInfo, when, category: str) -> Work | None
         return None
     title = re.sub(r"\s*(발생|복구)\s*$", "", notices.work_title(info.title)) or notices.work_title(info.title)
     if category == headers.KT_RECOVERY:
-        work = (Work.objects.filter(incident=True, title=title, starts_at__lte=when,
+        work = (Work.objects.filter(incident=True, title_key=notices.title_key(title), starts_at__lte=when,
                                     starts_at__gte=when - INCIDENT_JOIN, notices__targets__account__in=info.accounts)
                 .order_by("-starts_at").first())
         if work is not None:
@@ -102,9 +102,12 @@ def _incident_work(info: notices.NoticeInfo, when, category: str) -> Work | None
                 work.ends_at = when
                 work.save(update_fields=["ends_at"])
             return work
-    key = hashlib.sha256(f"incident\n{title}\n{when.isoformat()}".encode()).hexdigest()
-    work, _ = Work.objects.get_or_create(key=key, defaults={"title": title, "starts_at": when, "incident": True,
-                                                           "ends_at": when if category == headers.KT_RECOVERY else None})
+    work = Work.objects.filter(incident=True, title_key=notices.title_key(title), starts_at=when).order_by("pk").first()
+    if work is None:
+        key = hashlib.sha256(f"incident\n{notices.title_key(title)}\n{when.isoformat()}".encode()).hexdigest()
+        work, _ = Work.objects.get_or_create(key=key, defaults={
+            "title": title, "starts_at": when, "incident": True,
+            "ends_at": when if category == headers.KT_RECOVERY else None})
     return work
 
 
@@ -123,7 +126,8 @@ def _postponed_work(info: notices.NoticeInfo, first, seen) -> Work | None:
     title = notices.work_title(info.title)
     work = None
     if title and info.accounts and when is not None:
-        work = (Work.objects.filter(incident=False, title=title, starts_at__gte=when - POSTPONE_JOIN,
+        work = (Work.objects.filter(incident=False, title_key=notices.title_key(title),
+                                    starts_at__gte=when - POSTPONE_JOIN,
                                     notices__targets__account__in=info.accounts)
                 .order_by("-starts_at").first())
     work = work or _work(info, first)
@@ -137,7 +141,11 @@ def _work(info: notices.NoticeInfo, first) -> Work | None:
     title = notices.work_title(info.title)
     if not title or start is None:
         return None
-    key = hashlib.sha256(f"{title}\n{start.isoformat()}".encode()).hexdigest()
+    # Found by title_key and start, not by key: works made before title_key (2026-11-22) keep their old key.
+    work = Work.objects.filter(incident=False, title_key=notices.title_key(title), starts_at=start).order_by("pk").first()
+    if work is not None:
+        return work
+    key = hashlib.sha256(f"{notices.title_key(title)}\n{start.isoformat()}".encode()).hexdigest()
     work, created = Work.objects.get_or_create(key=key, defaults={"title": title, "starts_at": start, "ends_at": end})
     if created:
         _link_rework(work)
@@ -147,7 +155,7 @@ def _work(info: notices.NoticeInfo, first) -> Work | None:
 def _link_rework(work: Work) -> None:
     """A new work of the same title after a postponed one (a 작업 연기 공지 joined it) is its 재작업: the postponed
     one then leaves 진행 중 (web.views._row). Linked once, when the new work is made."""
-    old = (Work.objects.filter(title=work.title, incident=False, starts_at__lt=work.starts_at,
+    old = (Work.objects.filter(title_key=work.title_key, incident=False, starts_at__lt=work.starts_at,
                                notices__category=headers.KT_POSTPONE, reworks__isnull=True)
            .exclude(pk=work.pk).order_by("-starts_at").first())
     if old is not None:

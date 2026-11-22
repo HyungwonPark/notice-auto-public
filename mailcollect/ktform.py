@@ -46,7 +46,7 @@ class KtForm:
         ("title", ("작업내용",)),
         ("detail", ("상세내용",)),
         ("schedule", ("작업일시",)),
-        ("impact", ("작업영향",)),
+        ("impact", ("작업영향", "예상영향")),
     )
     footer: tuple[str, ...] = ("☎ 고객센터", "* 본 메일")  # a quoted line starting so is dropped (spaces ignored)
 

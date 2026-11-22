@@ -15,7 +15,9 @@ LIST_FIELDS = {"accounts", "servers", "lbs"}
 
 _BULLET = re.compile(r"^(?:[○ㅇ●◦•·\-–—*]|\d{1,2}[.)])\s*")
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
-_DATE = r"(?P<{p}y>\d{{4}}|\d{{2}})\s*[.\-/]\s*(?P<{p}m>\d{{1,2}})\s*[.\-/]\s*(?P<{p}d>\d{{1,2}})\.?\s*(?:\([^)]*\))?"
+# 2026. 11. 22, 2026-11-22, 2026/11/22 or 2026년 11월 22일 (2026-11-10), each with an optional (요일)
+_DATE = (r"(?P<{p}y>\d{{4}}|\d{{2}})\s*(?:[.\-/]|년)\s*(?P<{p}m>\d{{1,2}})\s*(?:[.\-/]|월)\s*(?P<{p}d>\d{{1,2}})"
+         r"\s*(?:\.|일)?\s*(?:\([^)]*\))?")
 _WINDOW = re.compile(
     _DATE.format(p="s") + r"\s*(?P<sh>\d{1,2}):(?P<smin>\d{2})\s*~\s*(?P<next>익일\s*)?"
     r"(?:" + _DATE.format(p="e") + r"\s*)?(?P<eh>\d{1,2}):(?P<emin>\d{2})"
@@ -47,6 +49,9 @@ def label_key(label: str) -> str:
 
 def _split_line(line: str) -> tuple[str, str, bool] | None:
     """(label key, value, bullet-led) for "label : value" or "label<TAB>value" lines."""
+    bullet = _BULLET.match(line)
+    if bullet and "\t" in bullet[0]:  # "1.<TAB>작업 내용 : ..." (2026-11-10): the tab follows the number only
+        line = bullet[0].rstrip() + " " + line[bullet.end():]
     if "\t" in line:
         label, _, value = line.partition("\t")
         value = " | ".join(cell.strip() for cell in value.split("\t") if cell.strip())
@@ -163,3 +168,9 @@ def _at(day: date, hour: int, minute: int) -> datetime:
 def work_title(title: str) -> str:
     """Normalised work title used to group the same work announced to several accounts."""
     return re.sub(r"\s+", " ", unicodedata.normalize("NFKC", title)).strip()
+
+
+def title_key(title: str) -> str:
+    """What two titles of one work share: KT writes 'kt cloud' or 'KT Cloud', '작업 (X)' or '작업(X)' in the mails
+    of one work (2026-11-22, the 완료 공지 became a work of its own), so case and spaces are ignored."""
+    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", title).casefold())

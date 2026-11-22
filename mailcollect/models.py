@@ -100,6 +100,7 @@ class Work(models.Model):
 
     key = models.CharField(max_length=64, unique=True)  # sha256 of normalised title + start
     title = models.TextField()
+    title_key = models.TextField(blank=True, db_index=True)  # notices.title_key(title): what finds the work again
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField(null=True)
     # A KT outage (headers.INCIDENTS): starts when KT's 발생 mail was sent, ends with its 복구 mail (a 서비스 점검 요청
@@ -109,6 +110,14 @@ class Work(models.Model):
     # KT's next notice of the same title after a 작업 연기 공지: the postponed work it does again (2026-10-25).
     rework_of = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="reworks")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        from .notices import title_key
+
+        self.title_key = title_key(self.title)
+        if kwargs.get("update_fields") is not None and "title" in kwargs["update_fields"]:
+            kwargs["update_fields"] = {*kwargs["update_fields"], "title_key"}
+        super().save(*args, **kwargs)
 
     def postponement(self):
         """KT's latest 작업 연기 공지 of this work, or None."""
