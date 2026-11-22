@@ -19,8 +19,8 @@ def internal(account=OWN):
     return InternalAccount.objects.create(account_key=account, added_at=timezone.now())
 
 
-def notice_for(account=OWN, uidl="k1"):
-    stored(uidl, headers.KT_URGENT, kt_text(account))
+def notice_for(account=OWN, uidl="k1", **text):
+    stored(uidl, headers.KT_URGENT, kt_text(account, **text))
     parse_pending()
     prepare_notifications()
     return Notification.objects.get(account=account)
@@ -72,7 +72,7 @@ def test_copy_for_an_internal_notice_is_logged_without_changing_it():
 
 def test_pages(client, django_user_model):
     client.force_login(django_user_model.objects.create_user("main", password="pw-for-tests", is_staff=True))
-    n = notice_for()
+    n = notice_for(schedule="2099. 10. 24 22:00 ~ 23:00")  # the page lists works of the last 14 days on
     review = client.get(reverse("review")).content.decode()
     assert OWN in review and "사내 계정</button>" in review and "안 쓰는 계정</button>" in review
 

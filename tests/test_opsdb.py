@@ -63,6 +63,22 @@ def test_view_rows_become_csv_columns_with_the_mobile_as_the_phone():
     assert opsdb.as_csv(records).decode().splitlines()[0] == "account,userid,name,회사명,담당자,email,phone"
 
 
+def test_an_account_whose_customer_was_unmapped_leaves_the_customers(monkeypatch):
+    unmapped = {"userid": None, "name": None, "company": None, "manager": None, "email": None,
+                "tel1": None, "tel2": None, "tel3": None, "phone1": None, "phone2": None, "phone3": None}
+    others = [view_row(f"n{i}@example.invalid") for i in range(8)]  # enough rows for the shrink guard
+    rows = [view_row("a@example.invalid"), view_row("b@example.invalid"), view_row("c@example.invalid", email=""), *others]
+    monkeypatch.setattr(opsdb, "fetch_rows", lambda cfg: rows)
+    assert opsdb.sync(CFG).ok
+    rows[1] = view_row("b@example.invalid", **unmapped)  # the account stays in the view, its customer is gone
+    run = opsdb.sync(CFG)
+    assert run.ok and run.rows == 10
+    active = set(CustomerAccount.objects.filter(active=True).values_list("account_key", flat=True))
+    assert "b@example.invalid" not in active and {"a@example.invalid", "c@example.invalid"} <= active  # no email: kept
+    rows.pop(1)  # the view drops the account: the same
+    assert opsdb.sync(CFG).ok and opsdb.sync(CFG).batch is None
+
+
 def test_sync_replaces_csv_db_and_web_rows_of_its_accounts_and_skips_unchanged_data(monkeypatch):
     CustomerAccount.objects.create(kind="general", source="csv", account="old@example.invalid", email="x@example.invalid")
     CustomerAccount.objects.create(kind="public", source="csv", account="gov@example.invalid", email="g@example.invalid")

@@ -67,6 +67,15 @@ def test_completion_draft_and_closing_added_when_missing():
     assert body.split("\n")[-3:] == ["ㅇ 작업내용 : 점검", "", "감사합니다."]
 
 
+def test_repeated_server_names_are_listed_once_with_spaces():
+    """KT repeats a server per disk with bare commas (2026-11-16): one long line stretched the mail form."""
+    text = "○ 대상계정명 : a@example.invalid\n○ 대상서버명 : db1,db1,db1,web,web\n○ 대상LB명 : lb1,lb1\nㅇ 작업내용 : 점검"
+    _, body = drafts.build("notice", text)
+    assert "○ 대상서버명 : db1, web\n○ 대상LB명 : lb1\n" in body
+    assert drafts.kt_quote("○ 대상서버명 : db1") == "○ 대상서버명 : db1"
+    assert drafts.kt_quote("ㅇ 작업내용 : a,b") == "ㅇ 작업내용 : a,b"  # other lines stay as KT wrote them
+
+
 def test_kt_text_is_spaced_like_a_hand_written_mail():
     """User's example (2026-10-19): sentences apart, item lines and the bracketed title together."""
     text = "\n".join(["○ 대상계정명 : a@example.invalid", "○ 대상서버명 : web-01", "[kt cloud 작업 완료 공지]",

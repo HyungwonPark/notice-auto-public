@@ -145,3 +145,35 @@ def test_coverage_counts_notice_accounts(tmp_path):
     call_command("customer_coverage", stdout=out)
     assert "distinct notice accounts: 2 found=1 missing=1" in out.getvalue()
     assert "found by kind: public=1" in out.getvalue()
+
+
+def test_customers_added_on_the_site_can_be_reviewed_deleted_and_put_back(client, django_user_model):
+    """사이트에서 추가만: a 관리 계정 decides whether a customer added on the site stays (user, 2026-11-05)."""
+    from customers.models import CustomerAccount
+    from django.urls import reverse
+    CustomerAccount.objects.create(kind="general", source="db", account="db@example.invalid", email="d@example.invalid")
+    kept = CustomerAccount.objects.create(kind="general", source="web", account="db@example.invalid",
+                                          email="w@example.invalid", web_only=True)
+    gone = CustomerAccount.objects.create(kind="general", source="web", account="site@example.invalid",
+                                          email="s@example.invalid")
+    shared = django_user_model.objects.create_user("shared", password="pw-for-tests")
+    client.force_login(shared)
+    page = client.get(reverse("customers") + "?added=1").content.decode()
+    assert "site@example.invalid" in page and 'name="ids"' not in page  # the shared sign-in only sees them
+    client.post(reverse("customers_remove"), {"ids": [gone.pk], "actor": "홍길동"})
+    assert CustomerAccount.objects.get(pk=gone.pk).active
+
+    client.force_login(django_user_model.objects.create_user("admin", password="pw-for-tests", is_staff=True))
+    page = client.get(reverse("customers") + "?added=1").content.decode()
+    assert page.count('name="ids"') == 2 and '<span class="tag yellow">없음</span>' in page  # not in the DB
+    assert client.post(reverse("customers_remove"), {"ids": [gone.pk]}).status_code == 302  # no name: refused
+    assert CustomerAccount.objects.get(pk=gone.pk).active
+    client.post(reverse("customers_remove"), {"ids": [gone.pk], "actor": "홍길동"})
+    gone.refresh_from_db()
+    assert not gone.active and gone.removed_by == "홍길동" and gone.removed_at
+    page = client.get(reverse("customers") + "?added=1").content.decode()
+    listed, _, deleted = page.partition('id="removed"')
+    assert "site@example.invalid" not in listed and "site@example.invalid" in deleted and "홍길동" in deleted
+    client.post(reverse("customers_remove"), {"ids": [gone.pk], "undo": "1"})
+    gone.refresh_from_db()
+    assert gone.active and not gone.removed_at and kept.active

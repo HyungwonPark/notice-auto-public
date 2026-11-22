@@ -197,3 +197,25 @@ def test_every_observed_format_round_trips(start, steps, fmt):
     end = start + timedelta(minutes=5 * steps)
     hours = steps // 12 if steps % 12 == 0 else None
     assert parse_schedule(fmt(start, end, hours)) == ([(start, end)], [])
+
+
+def test_numbered_items_with_a_tab_and_a_korean_date():
+    """2026-11-10: '1.<TAB>작업 내용 : …' and '2026년 11월 22일(일) 00:00 ~ 04:00' were not read."""
+    text = """○ 대상계정명 : owner@example.invalid
+○ 대상서버명 : web-01
+안녕하세요 kt cloud 입니다.
+
+고객님께 안정적인 서비스 제공을 위한 네트워크 개선 작업 안내 드립니다.
+※ kt cloud 정기 PM 매주 일요일 (00:00 ~ 07:00)
+1.\t작업 내용 : 목동 공용 Zone 네트워크 장비 대개체 작업 (CHUB-VPN)
+2.\t작업 일시 : 2026년 11월 22일(일) 00:00 ~ 04:00
+3.\t예상 영향 : 네트워크 순단 4회 발생
+4.\t문의처 : 고객센터 080-0000-000
+감사합니다."""
+    info = parse_notice(text)
+    assert info.problems == [] and info.accounts == ["owner@example.invalid"]
+    assert info.title == "목동 공용 Zone 네트워크 장비 대개체 작업 (CHUB-VPN)"
+    assert info.windows == [(datetime(2026, 11, 22, 0, 0, tzinfo=KST), datetime(2026, 11, 22, 4, 0, tzinfo=KST))]
+    assert info.impact == "네트워크 순단 4회 발생" and info.extra["문의처"].startswith("고객센터")
+    assert parse_schedule("2026년 11월 21일(토) 23:00 ~ 2026년 11월 22일(일) 02:00")[0] == [
+        (datetime(2026, 11, 21, 23, 0, tzinfo=KST), datetime(2026, 11, 22, 2, 0, tzinfo=KST))]

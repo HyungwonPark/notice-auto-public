@@ -133,3 +133,34 @@ def test_group_form_checks_and_retiring(channel, client, django_user_model):
     client.post(url, {"action": "retire", "group": group.pk, "actor": "홍길동"})
     group.refresh_from_db()
     assert not group.active and group.updated_by == "홍길동"
+
+
+def test_a_masked_name_in_the_server_field_is_no_server(channel):
+    """2026-11-10: KT wrote a masked customer name in 대상서버명: no server named, not one outside the groups."""
+    kt("k1", "(주)예시회사시스*", title="네트워크 장비 대개체 작업")
+    assert groups_of() == [("전체", "draft_ready")]
+    assert NOT_IN_GROUP not in Notification.objects.get().review_reasons
+
+
+def test_a_partner_notice_is_never_sent_by_this_site(channel):
+    """ABSOLUTE (user, 2026-11-10): 협력기관 and every 별도 발송 customer send their own notices."""
+    from notifications import dispatch
+    from tests.test_dispatch import LIVE, FakeSens, switch_on
+    fake = FakeSens()
+    switch_on()
+    kt("k1", "web-was")
+    kt("k2", "")
+    for n in Notification.objects.all():
+        Notification.objects.filter(pk=n.pk).update(status="draft_ready", recipients=["x@agency.example.invalid"],
+                                                   send_requested_by="홍길동")
+    channel.active = False  # a retired tab too
+    channel.save()
+    assert not list(dispatch.eligible(LIVE))
+    for n in Notification.objects.all():
+        assert dispatch.is_partner(n) and not dispatch.automatic(n, LIVE)
+        assert dispatch.send_one(LIVE, fake, n, by="홍길동") == "partner"
+        Notification.objects.filter(pk=n.pk).update(status="send_failed", send_requested_by="")
+        n.refresh_from_db()
+        assert not dispatch.request_send(n, "홍길동")
+    assert dispatch.run(LIVE, fake).get("live accepted", 0) == 0
+    assert fake.sent == []
