@@ -59,6 +59,9 @@ class CustomerAccount(models.Model):
     replaces = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, related_name="+")
     edited_by = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True, related_name="+")
     updated_at = models.DateTimeField(auto_now=True)
+    # A row added on the site that a 관리 계정 deleted (user, 2026-11-05): inactive, and can be put back.
+    removed_at = models.DateTimeField(null=True, blank=True)
+    removed_by = models.CharField(max_length=50, blank=True)
 
     SOURCE_COLUMNS = ("account", "userid", "name", "company", "manager", "email", "phone")
 
@@ -253,6 +256,7 @@ class PartnerChannel(models.Model):
         groups = [g for g in self.groups.filter(active=True).order_by("name", "pk") if g.to_list]
         if not groups:
             return [], []
+        servers = named_servers(servers)
         aliases = self.aliases()
         found, unknown = [], []
         for server in dict.fromkeys(servers):
@@ -262,6 +266,11 @@ class PartnerChannel(models.Model):
                 unknown.append(server)
             found += [g for g in hits if g not in found]
         return sorted(found, key=groups.index), unknown
+
+
+def named_servers(names: list[str]) -> list[str]:
+    """KT sometimes writes a masked customer name in 대상서버명 ('(주)예시회*', 2026-11-10): no server."""
+    return [n for n in names if "*" not in n]
 
 
 def server_key(name: str) -> str:

@@ -114,12 +114,20 @@ def _phone(row: dict) -> str:
     return ""
 
 
+CUSTOMER_FIELDS = ("userid", "name", "company", "email")  # all empty: the account has no customer mapped
+
+
 def to_records(view_rows: list[dict]) -> list[dict]:
-    """View rows -> the CSV's columns (model field names), in a fixed order so equal data hashes equal."""
+    """View rows -> the CSV's columns (model field names), in a fixed order so equal data hashes equal.
+
+    An account whose customer was unmapped in the operations DB is left out, so it leaves 고객 정보 like an
+    account the view no longer lists (user, 2026-11-05)."""
     records = []
     for row in view_rows:
         values = {fld: str(row.get(col) or "").strip() for col, fld in VIEW_COLUMNS.items()}
         values["phone"] = _phone(row)
+        if not any(values[f] for f in CUSTOMER_FIELDS):
+            continue
         records.append(values)
     records.sort(key=lambda r: (r["account"].lower(), r["email"].lower(), r["userid"]))
     return records
