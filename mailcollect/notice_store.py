@@ -1,7 +1,7 @@
 """Turn stored bodies into Notice rows (local only, never touches the mail server)."""
 import hashlib
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import timedelta
 
 from django.db import transaction
@@ -48,6 +48,7 @@ def store(body: MessageBody, form: ktform.KtForm | None = None) -> Notice:
             defaults={
                 "work": (work if seen.category == headers.KT_POSTPONE
                          else _incident_work(info, first[0], seen.category) if seen.category in headers.INCIDENTS
+                         else _follow_up_work(info, first) if seen.category in FOLLOW_UPS
                          else _work(info, first) if seen.category in KT_ORIGINALS else None),
                 "category": seen.category,
                 "title": info.title,
@@ -134,6 +135,30 @@ def _postponed_work(info: notices.NoticeInfo, first, seen) -> Work | None:
     if work is None and info.title and info.accounts:
         info.problems.append(NO_POSTPONED_WORK)
     return work
+
+
+FOLLOW_UPS = (headers.KT_COMPLETE, headers.KT_CANCEL)
+TOLD = (headers.KT_NOTICE, headers.KT_URGENT, headers.KT_POSTPONE)  # the mails that make a 사전 공지
+
+
+def _follow_up_work(info: notices.NoticeInfo, first) -> Work | None:
+    """A 완료 or 취소/변경 공지 joins the work its accounts were told about. KT's 사전 공지 may name a part of the
+    work ('작업 (CHUB-VPN)') and its 완료 공지 the whole ('작업'), or the other way round (2026-11-22: the 완료 became
+    a work in which that customer had no 사전 공지). So when the work of its own title told none of its accounts,
+    it joins the one work of the same start that told all of them and whose title holds its title or is held in it."""
+    start, title = first[0], notices.work_title(info.title)
+    if start is None or not title or not info.accounts:
+        return _work(info, first)
+    key, accounts = notices.title_key(title), set(info.accounts)
+    told = defaultdict(set)
+    for work_id, wkey, account in (Work.objects.filter(incident=False, starts_at=start, notices__category__in=TOLD,
+                                                       notices__targets__account__in=accounts)
+                                   .values_list("pk", "title_key", "notices__targets__account")):
+        told[(work_id, wkey)].add(account)
+    if any(wkey == key for _, wkey in told):
+        return _work(info, first)
+    near = [pk for (pk, wkey), got in told.items() if got >= accounts and (wkey.startswith(key) or key.startswith(wkey))]
+    return Work.objects.get(pk=near[0]) if len(near) == 1 else _work(info, first)
 
 
 def _work(info: notices.NoticeInfo, first) -> Work | None:
