@@ -67,3 +67,28 @@ def test_the_migration_merges_works_split_by_spelling():
         ("complete", 1), ("notice", 1), ("notice", 2), ("notice", 3)]
     assert prepare_notifications()["moved to an earlier send"] == 0
     assert Notification.objects.count() == 4
+
+
+def test_a_completion_under_the_whole_title_joins_the_part_its_account_was_told():
+    """2026-11-22: 사전 공지 '작업 (CHUB-VPN)' to one customer, '작업' to the rest; the 완료 공지 came as '작업'."""
+    other = "other-acct@example.invalid"
+    master(ACCOUNT)
+    master(other)
+    now = timezone.now()
+    when = "2099.11.22 (일) 00:00 ~ 04:00"
+    mail("p", headers.KT_NOTICE, "목동 장비 대개체 작업 (CHUB-VPN)", when, now - timedelta(days=5))
+    seen = stored("w", headers.KT_NOTICE, text("목동 장비 대개체 작업", when).replace(ACCOUNT, other),
+                  [b"From: kt cloud <cloudmaster@ktcloud.com>"])
+    MessageHeader.objects.filter(seen=seen).update(date=now - timedelta(days=5))
+    mail("c", headers.KT_COMPLETE, "목동 장비 대개체 작업", "2099.11.22 (일) 00:00 ~ 03:00", now)
+    seen = stored("c2", headers.KT_COMPLETE, text("목동 장비 대개체 작업", when).replace(ACCOUNT, other),
+                  [b"From: kt cloud <cloudmaster@ktcloud.com>"])
+    MessageHeader.objects.filter(seen=seen).update(date=now)
+    parse_pending()
+    prepare_notifications()
+    part = Work.objects.get(title__endswith="(CHUB-VPN)")
+    whole = Work.objects.get(title="목동 장비 대개체 작업")
+    assert sorted(Notification.objects.filter(work=part).values_list("account", "kind")) == [
+        (ACCOUNT, "complete"), (ACCOUNT, "notice")]
+    assert sorted(Notification.objects.filter(work=whole).values_list("account", "kind")) == [
+        (other, "complete"), (other, "notice")]
