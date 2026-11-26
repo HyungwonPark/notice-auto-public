@@ -19,7 +19,7 @@ RECHECK = timedelta(days=1)  # KT 기타 다시 분류: mail first seen within t
 NOTICE_REVIEW = "notice needs review"  # service._initial's reason for a notice read with problems
 CATEGORY = {
     headers.KT_NOTICE: "KT 작업 공지", headers.KT_URGENT: "KT 긴급 공지", headers.KT_COMPLETE: "KT 완료 공지",
-    headers.KT_CANCEL: "KT 취소/변경", headers.KT_POSTPONE: "KT 작업 연기", headers.KT_CHECK: "KT 점검 요청", headers.KT_OTHER: "KT 기타",
+    headers.KT_CANCEL: "KT 취소/변경", headers.KT_POSTPONE: "KT 작업 연기", headers.KT_CHECK: "KT 서비스 점검", headers.KT_OTHER: "KT 기타",
     headers.SUSPECT: "의심 메일",
     headers.OTHER: "그 밖의 메일",
 }

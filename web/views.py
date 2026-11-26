@@ -1099,7 +1099,7 @@ KT_KINDS = (  # word list, notice kind, a KT subject it matches
     ("urgent", "긴급 작업 공지", "[kt cloud 장애 예방 긴급 작업 공지]"),
     ("incident", "장애 발생 공지", "[kt cloud 컴퓨팅 노드 Down 발생 공지]"),
     ("recovery", "장애 복구 공지", "[kt cloud 컴퓨팅 노드 Down 복구 공지]"),
-    ("check", "서비스 점검 요청 공지", "[KT cloud 서비스 점검 요청 공지]"),
+    ("check", "서비스 점검 공지", "[KT cloud 서비스 점검 요청 공지]"),
     ("skip", "공지 아님 (넘김)", ""),
 )
 KT_USES = {  # where each item read from the body is used

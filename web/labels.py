@@ -8,7 +8,7 @@ CATEGORY = {
     "kt_incident": "KT 장애 발생 공지",
     "kt_recovery": "KT 장애 복구 공지",
     "kt_postpone": "KT 작업 연기 공지",
-    "kt_check": "KT 서비스 점검 요청 공지",
+    "kt_check": "KT 서비스 점검 공지",
     "kt_other": "KT 기타 메일",
     "nc24_notice": "보낸 사전 공지 메일",
     "nc24_complete": "보낸 완료 공지 메일",
