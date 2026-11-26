@@ -89,8 +89,28 @@ def test_the_work_waits_for_no_completion(client, django_user_model):
     work = Work.objects.get()
     page = client.get(f"/works/{work.pk}/").content.decode()
     assert "서비스 점검 요청 공지" in page and "공지가 오지 않았습니다" not in page
-    assert "점검 요청</span>" in client.get("/").content.decode()
+    assert "점검</span>" in client.get("/").content.decode()
     row = lambda: views._row(views._work_rows(Work.objects.all(), None).get(), timezone.now(), None)  # noqa: E731
     assert not row()["done"]
     Notification.objects.update(status="staff_confirmed", staff_name="담당자")
     assert row()["done"]  # 지난 작업 once the one notice is confirmed
+
+
+GUIDE = "[kt cloud 서비스 점검 안내 공지]"
+
+
+def test_a_check_guide_is_sent_the_same_way_under_its_own_name(fake):
+    """2026-11-26: '[kt cloud 서비스 점검 안내 공지]' (storage I/O blip under the customer's VM), sent at once."""
+    assert kind(GUIDE) == headers.KT_CHECK
+    switch_on()
+    master(ACCOUNT)
+    text = check_text().replace(CHECK, GUIDE).replace("○ 대상서버명 :", "○ 대상서버명 : web5,web5")
+    seen = stored("g1", headers.KT_CHECK, text, [b"From: kt cloud <cloudmaster@ktcloud.com>"])
+    MessageHeader.objects.filter(seen=seen).update(subject=GUIDE, date=timezone.now() - timedelta(minutes=5))
+    parse_pending()
+    prepare_notifications()
+    n = Notification.objects.get()
+    assert n.subject == "[예시클라우드] 서비스 점검 안내" and n.kind_label == "서비스 점검 안내 공지"
+    assert n.body.split("\n")[2] == "kt cloud 측으로부터 서비스 점검 안내 공지가 수신되어 안내드립니다."
+    assert "○ 대상서버명 : web5\n" in n.body
+    assert dispatch.run(LIVE, fake)["live accepted"] == 1
