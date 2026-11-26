@@ -77,8 +77,8 @@ class Notification(models.Model):
     def kind_label(self) -> str:
         """사전 공지 1차, 사전 공지 2차, …, 완료 공지; an outage's 장애 발생 공지 and 장애 복구 공지; 작업 연기 공지."""
         if self.work_id and self.work.incident:
-            if self.notice.category == headers.KT_CHECK:
-                return "서비스 점검 요청 공지"
+            if self.notice.category == headers.KT_CHECK:  # KT's own name: 서비스 점검 요청 공지, 서비스 점검 안내 공지
+                return f"{self.work.title or '서비스 점검'} 공지"
             return "장애 발생 공지" if self.kind == self.Kind.NOTICE else "장애 복구 공지"
         if self.kind == self.Kind.NOTICE and self.notice.category == headers.KT_POSTPONE:
             return "작업 연기 공지"

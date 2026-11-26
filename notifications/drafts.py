@@ -108,7 +108,8 @@ def build_incident(kt_text: str, title: str, footer: tuple[str, ...] = DEFAULT.f
     ]
     if not quote.rstrip().endswith("감사합니다."):
         lines += ["", "감사합니다."]
-    return f"[예시클라우드] {title} 안내", "\n".join(lines)
+    # '서비스 점검 안내' (2026-11-26) is a 안내 already: '[예시클라우드] 서비스 점검 안내', not '… 안내 안내'
+    return f"[예시클라우드] {title}" + ("" if title.endswith("안내") else " 안내"), "\n".join(lines)
 
 
 def number_in(text: str) -> str | None:
