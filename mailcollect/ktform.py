@@ -35,7 +35,8 @@ class KtForm:
     recovery: tuple[str, ...] = ("Down 복구",)
     # '[KT cloud 서비스 점검 요청 공지]' (2026-10-27): KT asks the customer to check a service after an event on
     # it (a virtual router, …). Needs no 작업 in the subject; sent at once like an outage notice (user).
-    check: tuple[str, ...] = ("점검 요청",)
+    # '[kt cloud 서비스 점검 안내 공지]' (2026-11-26, a storage I/O blip under a customer's VM): the same (user).
+    check: tuple[str, ...] = ("점검 요청", "서비스 점검 안내")
     labels: tuple[tuple[str, tuple[str, ...]], ...] = (
         ("accounts", ("대상계정명", "대상계정")),  # 예시클라우드 staff sometimes drop the 명
         ("servers", ("대상서버명",)),
